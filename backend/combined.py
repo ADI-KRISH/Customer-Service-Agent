@@ -17,15 +17,12 @@ import re
 import time
 import json
 import sys
-sys.path.append(r"C:/Users/GS Adithya Krishna\Desktop/internship\backend\Database\database.py")
+sys.path.append(r"path to database.py")
 from Database.database import CustomerDatabase
 
 load_dotenv()
 
-# ============================================================================
 # FLASK APP SETUP
-# ============================================================================
-
 app = Flask(__name__)
 CORS(app, resources={
     r"/*": {
@@ -35,16 +32,13 @@ CORS(app, resources={
     }
 })
 
-# ============================================================================
 # DATABASE INITIALIZATION
-# ============================================================================
 
 customer_db = CustomerDatabase()
 print("Using DB:", os.path.abspath(customer_db.db_path))
 
-# ============================================================================
 # ML MODELS INITIALIZATION
-# ============================================================================
+
 
 RECOMMENDER_MODEL = None
 FEATURE_BUILDER = None
@@ -61,21 +55,21 @@ def initialize_ml_models():
     global PRODUCT_FEATURES, TEXT_MODEL, PRODUCT_EMBEDDINGS, ML_LOADED
     
     try:
-        RECOMMENDER_MODEL = joblib.load(r"C:/Users/GS Adithya Krishna\Desktop/internship/recommendation_system/recommender_model.pkl")
-        FEATURE_BUILDER = joblib.load(r"C:/Users/GS Adithya Krishna\Desktop/internship/recommendation_system/feature_builder.pkl")
-        PRODUCT_CATALOG = pd.read_csv(r"C:/Users/GS Adithya Krishna\Desktop/internship\data/myntra_products_catalog.csv")
+        RECOMMENDER_MODEL = joblib.load(r"path to recommender_model.pkl")
+        FEATURE_BUILDER = joblib.load(r"path to feature_builder.pkl")
+        PRODUCT_CATALOG = pd.read_csv(r"path to dataset")
         
-        print("📄 Precomputing product features...")
+        print(" Precomputing product features...")
         PRODUCT_FEATURES = FEATURE_BUILDER.transform_products(PRODUCT_CATALOG)
         
         TEXT_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
         product_texts = (PRODUCT_CATALOG['ProductName'] + " " + PRODUCT_CATALOG['Description']).tolist()
         PRODUCT_EMBEDDINGS = TEXT_MODEL.encode(product_texts, show_progress_bar=False)
         
-        print("✅ ML models and catalog loaded successfully")
+        print(" ML models and catalog loaded successfully")
         ML_LOADED = True
     except Exception as e:
-        print(f"⚠️ Could not load ML models: {e}")
+        print(f" Could not load ML models: {e}")
         ML_LOADED = False
 
 
@@ -91,9 +85,7 @@ except ImportError:
         ]
 
 
-# ============================================================================
 # PYDANTIC MODELS & STATE
-# ============================================================================
 
 class State(TypedDict):
     messages: Annotated[List[BaseMessage], add]
@@ -139,9 +131,7 @@ class Clarification_Schema(BaseModel):
     reasoning: str = Field(default="")
 
 
-# ============================================================================
 # HELPER FUNCTIONS
-# ============================================================================
 
 def get_customer_context(customer_id: str) -> Dict:
     """Get comprehensive customer context for recommendations"""
@@ -201,9 +191,7 @@ def format_customer_context_for_llm(context: Dict) -> str:
     return formatted.strip()
 
 
-# ============================================================================
 # AGENT FUNCTIONS
-# ============================================================================
 
 def orchestrator(state: State) -> State:
     """Routes queries to appropriate agents"""
@@ -223,12 +211,12 @@ def orchestrator(state: State) -> State:
     clarification_question = state.get('clarification_question', '')
     
     print(f"\n{'='*80}")
-    print(f"🎯 ORCHESTRATOR - Iteration {iteration}")
+    print(f" ORCHESTRATOR - Iteration {iteration}")
     print(f"{'='*80}")
     
     # Handle clarification requests
     if needs_clarification and clarification_question:
-        print(f"❓ Agent needs clarification: {clarification_question}")
+        print(f" Agent needs clarification: {clarification_question}")
         return {
             'messages': [AIMessage(content=f"[Orchestrator] Agent requesting clarification", name="orchestrator")],
             'next_agent': 'Finish',
@@ -254,7 +242,7 @@ Answer with ONLY the agent name: "Support Agent" OR "Query Parser" OR "Escalatio
         response = orchestrator_llm.invoke([HumanMessage(content=prompt)])
         decision = response.content.strip().lower()
         
-        print(f"🤔 LLM Decision: {decision}")
+        print(f" LLM Decision: {decision}")
         
         if 'query parser' in decision or 'parser' in decision:
             routing = 'Query Parser'
@@ -264,9 +252,9 @@ Answer with ONLY the agent name: "Support Agent" OR "Query Parser" OR "Escalatio
             routing = 'Escalation Agent'
         else:
             routing = 'Support Agent'
-            print(f"⚠️ Could not parse decision, defaulting to Support Agent")
+            print(f" Could not parse decision, defaulting to Support Agent")
         
-        print(f"🔀 Routing to: {routing}")
+        print(f" Routing to: {routing}")
         
         return {
             'messages': [AIMessage(content=f"[Orchestrator] Routing to: {routing}", name="orchestrator")],
@@ -277,7 +265,7 @@ Answer with ONLY the agent name: "Support Agent" OR "Query Parser" OR "Escalatio
     
     # After Query Parser: Route to Recommendation Agent
     if current_agent == 'Query Parser':
-        print("💡 Query parsed, routing to Recommendation Agent")
+        print(" Query parsed, routing to Recommendation Agent")
         return {
             'messages': [AIMessage(content="[Orchestrator] Getting recommendations...", name="orchestrator")],
             'next_agent': 'Recommendation Agent',
@@ -297,7 +285,7 @@ Answer with ONLY the agent name: "Support Agent" OR "Query Parser" OR "Escalatio
             agent_completed_work = True
         
         if agent_completed_work:
-            print(f"✅ Work Complete")
+            print(f" Work Complete")
             return {
                 'messages': [AIMessage(content=f"[Orchestrator] Task Complete", name="orchestrator")],
                 'next_agent': 'Finish',
@@ -305,7 +293,7 @@ Answer with ONLY the agent name: "Support Agent" OR "Query Parser" OR "Escalatio
                 'iteration': iteration + 1
             }
         
-        print("⚠️ Warning: Agent didn't complete work, forcing finish")
+        print(" Warning: Agent didn't complete work, forcing finish")
         return {
             'messages': [AIMessage(content="[Orchestrator] Forcing completion", name="orchestrator")],
             'next_agent': 'Finish',
@@ -406,8 +394,8 @@ Now parse this query:"""
         
         filters = {k: v for k, v in filters.items() if v is not None}
         
-        print(f"✅ Parsed filters: {filters}")
-        print(f"💭 Reasoning: {parsed.reasoning}")
+        print(f" Parsed filters: {filters}")
+        print(f" Reasoning: {parsed.reasoning}")
         
         return {
             'messages': [AIMessage(content=f"[Query Parser] Extracted filters: {filters}", name="query_parser")],
@@ -417,7 +405,7 @@ Now parse this query:"""
         }
     
     except Exception as e:
-        print(f"❌ Parsing error: {e}")
+        print(f" Parsing error: {e}")
         return {
             'messages': [AIMessage(content=f"[Query Parser] Error parsing query", name="query_parser")],
             'parsed_filters': {},
@@ -430,7 +418,7 @@ def support_agent(state: State) -> State:
     """Handles general customer support queries"""
     
     print(f"\n{'='*80}")
-    print(f"🔧 SUPPORT AGENT EXECUTING")
+    print(f" SUPPORT AGENT EXECUTING")
     print(f"{'='*80}")
     
     support_llm = ChatOpenAI(
@@ -478,15 +466,15 @@ If answerable, set needs_clarification to False."""
                 'agents_executed': ['Support Agent']
             }
     except Exception as e:
-        print(f"⚠️ Clarification check error: {e}")
+        print(f" Clarification check error: {e}")
     
     try:
         search_results = search(query, k=3)
         context = '\n'.join([f"- {result['text']}" for result in search_results])
-        print(f"📚 Retrieved {len(search_results)} relevant documents")
+        print(f" Retrieved {len(search_results)} relevant documents")
     except Exception as e:
         context = "No relevant context found."
-        print(f"⚠️ Search error: {e}")
+        print(f" Search error: {e}")
     
     customer_context_str = format_customer_context_for_llm(customer_context)
     
@@ -509,7 +497,7 @@ Your response:"""
     
     response = support_llm.invoke([HumanMessage(content=prompt)])
     
-    print(f"✅ Support response generated")
+    print(f" Support response generated")
     
     return {
         'messages': [AIMessage(content=f"[Support Agent] {response.content}", name="support_agent")],
@@ -528,7 +516,7 @@ def get_ml_recommendations(query: str, customer_context: Dict,
     if not ML_LOADED:
         return []
     
-    print(f"\n🤖 ML Engine: Processing with filters={filters}, use_history={use_history}")
+    print(f"\n ML Engine: Processing with filters={filters}, use_history={use_history}")
     
     profile = customer_context.get('profile', {})
     insights = customer_context.get('insights', {})
@@ -544,34 +532,34 @@ def get_ml_recommendations(query: str, customer_context: Dict,
             (PRODUCT_CATALOG['Gender'] == 'Unisex')
         )
         valid_mask &= gender_mask
-        print(f"  ✓ Gender={filters['gender']}: {gender_mask.sum()} products")
+        print(f"   Gender={filters['gender']}: {gender_mask.sum()} products")
     
     if filters.get('brand'):
         brand_mask = PRODUCT_CATALOG['ProductBrand'].str.contains(
             filters['brand'], case=False, na=False
         )
         valid_mask &= brand_mask
-        print(f"  ✓ Brand={filters['brand']}: {brand_mask.sum()} products")
+        print(f"  Brand={filters['brand']}: {brand_mask.sum()} products")
     
     if filters.get('category'):
         category_mask = PRODUCT_CATALOG['Category'] == filters['category']
         valid_mask &= category_mask
-        print(f"  ✓ Category={filters['category']}: {category_mask.sum()} products")
+        print(f"  Category={filters['category']}: {category_mask.sum()} products")
     
     if filters.get('max_price'):
         price_mask = PRODUCT_CATALOG['Price (INR)'] <= filters['max_price']
         valid_mask &= price_mask
-        print(f"  ✓ Max price=₹{filters['max_price']}: {price_mask.sum()} products")
+        print(f"  Max price=₹{filters['max_price']}: {price_mask.sum()} products")
     
     if filters.get('min_price'):
         price_mask = PRODUCT_CATALOG['Price (INR)'] >= filters['min_price']
         valid_mask &= price_mask
-        print(f"  ✓ Min price=₹{filters['min_price']}: {price_mask.sum()} products")
+        print(f"  Min price=₹{filters['min_price']}: {price_mask.sum()} products")
     
     print(f"📊 After filtering: {valid_mask.sum()} products remain")
     
     if valid_mask.sum() == 0:
-        print("⚠️ No products match filters!")
+        print(" No products match filters!")
         return []
     
     # Semantic search
@@ -583,7 +571,7 @@ def get_ml_recommendations(query: str, customer_context: Dict,
     
     # If use_history=True, boost products similar to past purchases
     if use_history and purchase_history:
-        print("💡 Boosting based on purchase history...")
+        print(" Boosting based on purchase history...")
         purchased_categories = [p.get('category') for p in purchase_history if p.get('category')]
         purchased_brands = [p.get('product_brand') for p in purchase_history if p.get('product_brand')]
         
@@ -598,7 +586,7 @@ def get_ml_recommendations(query: str, customer_context: Dict,
         for brand in insights['favorite_brands']:
             brand_mask = PRODUCT_CATALOG['ProductBrand'] == brand
             combined_scores[brand_mask.values] += 0.15
-            print(f"💡 Boosting favorite brand: {brand}")
+            print(f" Boosting favorite brand: {brand}")
     
     # Apply mask
     combined_scores[~valid_mask] = -1
@@ -639,7 +627,7 @@ def get_ml_recommendations(query: str, customer_context: Dict,
             'is_repurchase': is_repurchase
         })
     
-    print(f"✅ Returning {len(recommendations)} recommendations")
+    print(f"  Returning {len(recommendations)} recommendations")
     return recommendations
 
 
@@ -647,7 +635,7 @@ def recommendation_agent(state: State) -> State:
     """Provides personalized product recommendations using parsed filters"""
     
     print(f"\n{'='*80}")
-    print(f"💡 RECOMMENDATION AGENT EXECUTING")
+    print(f" RECOMMENDATION AGENT EXECUTING")
     print(f"{'='*80}")
     
     query = state.get('task', '')
@@ -716,7 +704,7 @@ def recommendation_agent(state: State) -> State:
         product_type = parsed_filters['product_type'].lower()
         ml_filters['category'] = type_to_category.get(product_type)
     
-    print(f"🎯 ML Filters: {ml_filters}")
+    print(f" ML Filters: {ml_filters}")
     
     # Get recommendations
     try:
@@ -744,7 +732,7 @@ def recommendation_agent(state: State) -> State:
                 # Show what filters were applied
                 if ml_filters:
                     filter_summary = ', '.join([f'{k}={v}' for k, v in ml_filters.items()])
-                    output += f"\n🔍 Filtered by: {filter_summary}"
+                    output += f"\n Filtered by: {filter_summary}"
                 
                 return {
                     'messages': [AIMessage(content=output, name="recommendation_agent")],
@@ -758,7 +746,7 @@ def recommendation_agent(state: State) -> State:
         raise Exception("ML not available, using LLM fallback")
     
     except Exception as e:
-        print(f"⚠️ Using LLM fallback: {e}")
+        print(f" Using LLM fallback: {e}")
         
         # LLM-based recommendations with parsed filters
         filter_context = ""
@@ -789,21 +777,16 @@ Give specific products with brands, prices, and reasons."""
 import uuid
 from datetime import datetime
 
-# ============================================================================
-# IN-MEMORY ESCALATION STORAGE (Add near the top with other globals)
-# ============================================================================
-
+# IN-MEMORY ESCALATION STORAGE 
 ESCALATIONS = []  # Store escalations in memory (use database in production)
 
-# ============================================================================
 # UPDATED ESCALATION AGENT (Replace your existing escalation_agent function)
-# ============================================================================
 
 def escalation_agent(state: State) -> State:
     """Evaluates escalation and sends to supervisor dashboard"""
     
     print(f"\n{'='*80}")
-    print(f"⚠️  ESCALATION AGENT EXECUTING")
+    print(f"  ESCALATION AGENT EXECUTING")
     print(f"{'='*80}")
     
     escalation_llm = ChatOpenAI(
@@ -847,15 +830,15 @@ Provide score and reasoning."""
         response = escalation_llm_with_schema.invoke([HumanMessage(content=prompt)])
         confidence = float(response.confidence_score)
         reasoning = response.reasoning
-        print(f"📊 Escalation Score: {confidence:.2f}")
-        print(f"💭 Reasoning: {reasoning}")
+        print(f" Escalation Score: {confidence:.2f}")
+        print(f" Reasoning: {reasoning}")
     except Exception as e:
-        print(f"⚠️ Error: {e}")
+        print(f" Error: {e}")
         confidence = 0.5
         reasoning = "Error in analysis"
     
     if confidence >= 0.7:
-        print("🚨 ESCALATING TO SUPERVISOR DASHBOARD")
+        print(" ESCALATING TO SUPERVISOR DASHBOARD")
         
         # Create escalation record
         profile = customer_context.get('profile', {})
@@ -886,7 +869,7 @@ Provide score and reasoning."""
         
         # Add to escalations list
         ESCALATIONS.append(escalation_record)
-        print(f"✅ Escalation record created: {escalation_record['escalation_id']}")
+        print(f" Escalation record created: {escalation_record['escalation_id']}")
         
         # User-facing message (reassuring and professional)
         customer_name = profile.get('name', '')
@@ -913,7 +896,7 @@ Is there anything else I can help you with in the meantime?"""
     else:
         user_message = f"Thank you for reaching out. Your query has been processed successfully."
         escalated = []
-        print("✅ No escalation needed")
+        print(" No escalation needed")
     
     return {
         'messages': [AIMessage(content=user_message, name="escalation_agent")],
@@ -926,9 +909,7 @@ Is there anything else I can help you with in the meantime?"""
     }
 
 
-# ============================================================================
 # NEW FLASK ROUTES FOR SUPERVISOR DASHBOARD (Add these routes)
-# ============================================================================
 
 @app.route('/escalations', methods=['GET'])
 def get_escalations():
@@ -969,7 +950,7 @@ def resolve_escalation(escalation_id: str):
         escalation['resolved_at'] = datetime.now().isoformat()
         escalation['supervisor_response'] = supervisor_response
         
-        print(f"✅ Escalation {escalation_id} marked as resolved")
+        print(f" Escalation {escalation_id} marked as resolved")
         
         return jsonify({
             'message': 'Escalation resolved successfully',
@@ -1026,7 +1007,7 @@ def get_escalation_stats():
 def route_from_orchestrator(state: State) -> str:
     """Routes based on orchestrator decision"""
     next_agent = state.get('next_agent', 'Finish')
-    print(f"🔀 ROUTER: '{next_agent}'")
+    print(f" ROUTER: '{next_agent}'")
     return next_agent
 
 
@@ -1153,7 +1134,7 @@ def run_customer_support_streaming(customer_query: str, customer_id: str) -> Gen
         yield {'type': 'done', 'metadata': metadata}
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f" Error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -1170,9 +1151,7 @@ def run_customer_support_streaming(customer_query: str, customer_id: str) -> Gen
         yield {'type': 'error', 'message': str(e)}
 
 
-# ============================================================================
 # FLASK ROUTES
-# ============================================================================
 
 def create_sse_message(event_type: str, data: dict) -> str:
     """Create SSE message"""
@@ -1253,7 +1232,7 @@ def chat():
                         break
 
             except Exception as e:
-                print(f"❌ Generate error: {e}")
+                print(f" Generate error: {e}")
                 import traceback
                 traceback.print_exc()
                 yield create_sse_message('error', {'message': f'Error: {str(e)}'})
@@ -1269,7 +1248,7 @@ def chat():
         )
 
     except Exception as e:
-        print(f"❌ Chat error: {e}")
+        print(f" Chat error: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -1362,20 +1341,18 @@ def internal_error(e):
     return jsonify({'error': 'Internal server error'}), 500
 
 
-# ============================================================================
 # MAIN ENTRY POINT
-# ============================================================================
 
 if __name__ == '__main__':
     print("\n" + "="*80)
-    print("🤖 CUSTOMER SUPPORT AI - COMPLETE SYSTEM")
+    print(" CUSTOMER SUPPORT AI - COMPLETE SYSTEM")
     print("="*80)
     
-    print("\n🚀 Initializing ML models...")
+    print("\n Initializing ML models...")
     initialize_ml_models()
     
     print("\n📡 Server starting on http://localhost:5000")
-    print("💡 Endpoints:")
+    print(" Endpoints:")
     print("   - POST /chat - Main chat endpoint")
     print("   - POST /login - User login")
     print("   - GET  /health - Health check")
@@ -1385,14 +1362,14 @@ if __name__ == '__main__':
     print("   - GET  /conversation/<id> - Get chat history")
     print("   - POST /reset/<id> - Reset conversation")
     
-    print("\n🎯 Agent Architecture:")
+    print("\n Agent Architecture:")
     print("   1. Orchestrator - Routes queries")
     print("   2. Query Parser - Extracts filters (NEW!)")
     print("   3. Support Agent - Handles FAQs")
     print("   4. Recommendation Agent - Provides products")
     print("   5. Escalation Agent - Evaluates issues")
     
-    print("\n⚡ Ready!\n")
+    print("\n Ready!\n")
     
     app.run(
         host='0.0.0.0',
