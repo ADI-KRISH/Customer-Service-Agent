@@ -79,9 +79,9 @@ class CustomerDatabase:
         
         conn.commit()
         conn.close()
-        print("✅ Database initialized successfully")
+        print("Database initialized successfully")
     
-    # ==================== CUSTOMER OPERATIONS ====================
+    # CUSTOMER OPERATIONS 
     
     def add_customer(self, customer_id: str, name: str, email: str, 
                      phone: str = None, gender: str = None) -> bool:
@@ -253,7 +253,7 @@ class CustomerDatabase:
             'favorite_categories': fav_categories
         }
     
-    # ==================== CONVERSATION HISTORY OPERATIONS ====================
+    # CONVERSATION HISTORY OPERATIONS 
     
     def add_message(self, customer_id: str, role: str, content: str, 
                    agent_name: str = None, metadata: Dict = None):
@@ -319,7 +319,7 @@ class CustomerDatabase:
         conn.close()
 
 
-# ==================== UTILITY FUNCTIONS ====================
+#  UTILITY FUNCTIONS 
 
 def seed_sample_data(db: CustomerDatabase):
     """Add sample data for testing"""
@@ -358,7 +358,7 @@ def seed_sample_data(db: CustomerDatabase):
     )
 
     
-    print("✅ Sample data seeded")
+    print("Sample data seeded")
 
 
 if __name__ == '__main__':
@@ -369,11 +369,11 @@ if __name__ == '__main__':
     seed_sample_data(db)
     
     # Test queries
-    print("\n📊 Customer CUST001 Profile:")
+    print("\n Customer CUST001 Profile:")
     print(db.get_customer('CUST001'))
     
-    print("\n🛒 Purchase History:")
+    print("\n Purchase History:")
     print(db.get_purchase_history('CUST001'))
     
-    print("\n💡 Customer Insights:")
+    print("\nCustomer Insights:")
     print(db.get_customer_insights('CUST001'))
