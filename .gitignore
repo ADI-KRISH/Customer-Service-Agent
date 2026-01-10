@@ -1,0 +1,95 @@
+# ============================
+# Python & Virtual Environments
+# ============================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+.venv/
+env/
+venv/
+.python-version
+
+# ============================
+# IDE & OS
+# ============================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ============================
+# Environment & Secrets
+# ============================
+.env
+.env.*
+*.key
+*.pem
+*.crt
+
+# ============================
+# Logs & Runtime files
+# ============================
+*.log
+logs/
+*.pid
+
+# ============================
+# Model, Cache & Temporary Files
+# ============================
+*.pkl
+*.joblib
+*.pt
+*.pth
+*.onnx
+*.bin
+*.npz
+*.h5
+cache/
+tmp/
+temp/
+
+# ============================
+# Vector DB & Embeddings
+# ============================
+vector_db/
+*.faiss
+*.index
+*.db
+
+# ============================
+# Zips, dumps, exports
+# ============================
+*.zip
+*.tar
+*.gz
+*.rar
+
+# ============================
+# Local data
+# ============================
+data/
+datasets/
+
+# ============================
+# Jupyter
+# ============================
+.ipynb_checkpoints
+
+# ============================
+# Ignore specific files in your repo
+# ============================
+vector_db_docs.pkl
+full.zip
+
+main.py
+project
+frontend/app.js
+
+agents
+extra
+dir.py

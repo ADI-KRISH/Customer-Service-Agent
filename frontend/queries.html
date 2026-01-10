@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor Dashboard - Escalated Queries</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+        }
+
+        .header .badge {
+            background: #dc3545;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 16px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .stat-card .number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .filters select, .filters button {
+            padding: 10px 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .filters button {
+            background: #667eea;
+            color: white;
+            border: none;
+        }
+
+        .filters button:hover {
+            background: #5568d3;
+        }
+
+        .escalations-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .escalation-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            overflow: hidden;
+            transition: transform 0.3s;
+        }
+
+        .escalation-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .escalation-header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .escalation-header.resolved {
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+        }
+
+        .priority-badge {
+            background: #fff;
+            color: #dc3545;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .escalation-body {
+            padding: 25px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .customer-query {
+            background: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #dc3545;
+            border-radius: 8px;
+            font-style: italic;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .info-item label {
+            font-size: 12px;
+            color: #666;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .info-item .value {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 13px;
+        }
+
+        table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .btn-resolve {
+            background: #28a745;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-resolve:hover {
+            background: #218838;
+        }
+
+        .btn-contact {
+            background: #007bff;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-contact:hover {
+            background: #0056b3;
+        }
+
+        .btn-notes {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-notes:hover {
+            background: #5a6268;
+        }
+
+        .no-escalations {
+            background: white;
+            padding: 60px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .no-escalations h2 {
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+
+        .timestamp {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .response-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            margin-top: 10px;
+            min-height: 100px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.pending {
+            background: #ffc107;
+            animation: blink 1.5s infinite;
+        }
+
+        .status-indicator.resolved {
+            background: #28a745;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Supervisor Dashboard</h1>
+            <div class="badge">
+                <span id="escalationCount">0</span> Active Escalations
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Escalations</h3>
+                <div class="number" id="totalEscalations">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Pending</h3>
+                <div class="number" id="pendingCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Resolved Today</h3>
+                <div class="number" id="resolvedCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Avg Response Time</h3>
+                <div class="number" id="avgResponse">-</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <select id="statusFilter">
+                <option value="all">All Status</option>
+                <option value="pending" selected>Pending Only</option>
+                <option value="resolved">Resolved Only</option>
+            </select>
+            <select id="priorityFilter">
+                <option value="all">All Priorities</option>
+                <option value="high">High Priority (90%+)</option>
+                <option value="medium">Medium Priority (70-89%)</option>
+            </select>
+            <button onclick="refreshData()">🔄 Refresh</button>
+        </div>
+
+        <div class="escalations-grid" id="escalationsContainer">
+            <div class="no-escalations">
+                <h2>✅ All Clear!</h2>
+                <p>No pending escalations at the moment.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000';
+        let escalations = [];
+
+        // Fetch escalations from backend
+        async function fetchEscalations() {
+            try {
+                const response = await fetch(`${API_URL}/escalations`);
+                const data = await response.json();
+                escalations = data.escalations || [];
+                renderEscalations();
+                updateStats();
+            } catch (error) {
+                console.error('Error fetching escalations:', error);
+            }
+        }
+
+        function renderEscalations() {
+            const container = document.getElementById('escalationsContainer');
+            const statusFilter = document.getElementById('statusFilter').value;
+            const priorityFilter = document.getElementById('priorityFilter').value;
+
+            let filtered = escalations.filter(esc => {
+                if (statusFilter !== 'all' && esc.status !== statusFilter) return false;
+                if (priorityFilter === 'high' && esc.confidence_score < 0.9) return false;
+                if (priorityFilter === 'medium' && (esc.confidence_score < 0.7 || esc.confidence_score >= 0.9)) return false;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="no-escalations">
+                        <h2>✅ All Clear!</h2>
+                        <p>No escalations matching your filters.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(esc => `
+                <div class="escalation-card">
+                    <div class="escalation-header ${esc.status}">
+                        <div>
+                            <span class="status-indicator ${esc.status}"></span>
+                            <strong>${esc.customer_name}</strong> - ${esc.status.toUpperCase()}
+                        </div>
+                        <div class="priority-badge">
+                            Priority: ${Math.round(esc.confidence_score * 100)}%
+                        </div>
+                    </div>
+
+                    <div class="escalation-body">
+                        <div class="section">
+                            <div class="section-title">📋 Customer Query</div>
+                            <div class="customer-query">"${esc.query}"</div>
+                            <div class="timestamp">Escalated: ${new Date(esc.timestamp).toLocaleString()}</div>
+                        </div>
+
+                        <div class="section">
+                            <div class="section-title">⚠️ Escalation Analysis</div>
+                            <p style="color: #666; line-height: 1.6;">${esc.reasoning}</p>
+                        </div>
+
+                        <div class="section">
+                            <div class="section-title">👤 Customer Information</div>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Customer ID</label>
+                                    <div class="value">${esc.customer_id}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label>Email</label>
+                                    <div class="value">${esc.customer_email}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label>Phone</label>
+                                    <div class="value">${esc.customer_phone}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label>Gender</label>
+                                    <div class="value">${esc.customer_gender}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <div class="section-title">💰 Customer Value</div>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Total Purchases</label>
+                                    <div class="value">${esc.total_purchases} items</div>
+                                </div>
+                                <div class="info-item">
+                                    <label>Lifetime Value</label>
+                                    <div class="value">₹${esc.total_spent.toLocaleString()}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label>Avg Order Value</label>
+                                    <div class="value">₹${esc.avg_purchase_value.toLocaleString()}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label>Favorite Brands</label>
+                                    <div class="value">${esc.favorite_brands.join(', ') || 'None'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${esc.purchase_history.length > 0 ? `
+                        <div class="section">
+                            <div class="section-title">🛍️ Recent Purchases</div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Brand</th>
+                                        <th>Price</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${esc.purchase_history.slice(0, 5).map(p => `
+                                        <tr>
+                                            <td>${p.product_name}</td>
+                                            <td>${p.product_brand}</td>
+                                            <td>₹${p.price.toLocaleString()}</td>
+                                            <td>${p.purchase_date}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        ` : ''}
+
+                        ${esc.status === 'pending' ? `
+                        <div class="section">
+                            <div class="section-title">📝 Response (Optional)</div>
+                            <textarea 
+                                class="response-textarea" 
+                                id="response-${esc.escalation_id}"
+                                placeholder="Add notes or response for the customer..."></textarea>
+                        </div>
+                        ` : ''}
+
+                        <div class="actions">
+                            ${esc.status === 'pending' ? `
+                                <button class="btn btn-resolve" onclick="resolveEscalation('${esc.escalation_id}')">
+                                    ✅ Mark as Resolved
+                                </button>
+                                <button class="btn btn-contact" onclick="contactCustomer('${esc.customer_email}', '${esc.customer_phone}')">
+                                    📞 Contact Customer
+                                </button>
+                            ` : `
+                                <button class="btn btn-resolve" disabled style="opacity: 0.5;">
+                                    ✅ Already Resolved
+                                </button>
+                            `}
+                            <button class="btn btn-notes" onclick="viewFullDetails('${esc.escalation_id}')">
+                                📄 Full Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateStats() {
+            const total = escalations.length;
+            const pending = escalations.filter(e => e.status === 'pending').length;
+            const resolved = escalations.filter(e => e.status === 'resolved').length;
+
+            document.getElementById('totalEscalations').textContent = total;
+            document.getElementById('pendingCount').textContent = pending;
+            document.getElementById('resolvedCount').textContent = resolved;
+            document.getElementById('escalationCount').textContent = pending;
+            document.getElementById('avgResponse').textContent = '< 2h';
+        }
+
+        async function resolveEscalation(escalationId) {
+            const response = document.getElementById(`response-${escalationId}`)?.value || '';
+            
+            if (!confirm('Mark this escalation as resolved?')) return;
+
+            try {
+                await fetch(`${API_URL}/escalations/${escalationId}/resolve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ response })
+                });
+                
+                alert('✅ Escalation marked as resolved!');
+                fetchEscalations();
+            } catch (error) {
+                alert('Error resolving escalation: ' + error.message);
+            }
+        }
+
+        function contactCustomer(email, phone) {
+            const choice = confirm(`Contact customer via:\nOK = Email (${email})\nCancel = Phone (${phone})`);
+            if (choice) {
+                window.location.href = `mailto:${email}`;
+            } else {
+                alert(`Call customer at: ${phone}`);
+            }
+        }
+
+        function viewFullDetails(escalationId) {
+            const esc = escalations.find(e => e.escalation_id === escalationId);
+            if (esc) {
+                alert(JSON.stringify(esc, null, 2));
+            }
+        }
+
+        function refreshData() {
+            fetchEscalations();
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(fetchEscalations, 30000);
+
+        // Initial load
+        fetchEscalations();
+
+        // Filter change handlers
+        document.getElementById('statusFilter').addEventListener('change', renderEscalations);
+        document.getElementById('priorityFilter').addEventListener('change', renderEscalations);
+    </script>
+</body>
+</html>
