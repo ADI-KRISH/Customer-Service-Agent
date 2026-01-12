@@ -62,6 +62,7 @@ The system features **session persistence**, **streaming responses**, and a **re
 
 ##  Architecture
 
+<img width="5654" height="8192" alt="agentic workflow" src="https://github.com/user-attachments/assets/47deceae-c3cb-41b6-a7ec-6a80d0c67b04" />
 
 
 ##  Tech Stack
@@ -157,7 +158,7 @@ python build_vector_store.py
 ### 7. Train ML Recommendation Model
 ```bash
 cd recommendation_system
-python train_lightgbm.py
+python train.py
 ```
 
 This will generate:
@@ -189,10 +190,15 @@ DB_PATH = "YOUR_PATH/customer_support.db"
 // Line 158 (if different from localhost)
 const response = await fetch("http://YOUR_SERVER:5000/chat", {
 ```
+--- 
 
+### Add category column to dataset 
+---bash
+cd data 
+python category.py
 ---
 
-## 🚀 Running the Application
+##  Running the Application
 
 ### 1. Start Backend Server
 ```bash
@@ -223,6 +229,7 @@ cd supervisor_dashboard
 Dashboard available at: `file:///path/to/supervisor.html`
 
 ---
+
 
 ##  API Documentation
 
