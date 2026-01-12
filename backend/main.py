@@ -490,7 +490,7 @@ If answerable, set needs_clarification to False."""
     
     customer_context_str = format_customer_context_for_llm(customer_context)
     
-    prompt = f"""You are a friendly customer support agent.
+    prompt = f"""You are a senior customer support specialist for a premium e-commerce platform.
 
 **Customer Query:** {query}
 
@@ -499,11 +499,16 @@ If answerable, set needs_clarification to False."""
 **Relevant Policy Information:**
 {context}
 
+**STRICT OUTPUT RULES:**
+1. **PLAIN TEXT ONLY:** Do NOT use markdown formatting. No asterisks (**), no hashes (#), no bolding.
+2. **NO PLACEHOLDERS:** Never use '[Your Name]' or '[Insert Date]'. Sign off simply as "Customer Support Team".
+3. **TONE:** Be professional, concise, and empathetic. Avoid robotic phrases.
+4. **FORMAT:** Use simple spacing for readability. Do not use bullet points characters that might break rendering; use hyphens (-) if a list is absolutely necessary.
+
 **Instructions:**
-- Provide a clear, helpful answer
-- Personalize using customer's name and history
-- Be professional and empathetic
-- Keep response concise (2-3 paragraphs)
+- Answer the query directly based on the context provided.
+- If the policy information answers the question, paraphrase it warmly.
+- If the query is about a specific order and you have the history, refer to the product names naturally.
 
 Your response:"""
     
@@ -732,19 +737,28 @@ def recommendation_agent(state: State) -> State:
     if parsed_filters.get('brand'):
         ml_filters['brand'] = parsed_filters['brand']
     
+    # ... inside recommendation_agent function ...
+    
     if parsed_filters.get('category'):
         ml_filters['category'] = parsed_filters['category']
     elif parsed_filters.get('product_type'):
         # Map product_type to category
+        # MAKE SURE THESE VALUES MATCH YOUR CSV 'Category' COLUMN EXACTLY
         type_to_category = {
             'shoes': 'Shoes',
+            'sneakers': 'Shoes',
+            'boots': 'Shoes',
             'shirt': 'Topwear',
+            't-shirt': 'Topwear',
             'pants': 'Bottomwear',
+            'trousers': 'Bottomwear',
+            'jeans': 'Bottomwear',
             'dress': 'Dress',
             'jacket': 'Topwear'
         }
         product_type = parsed_filters['product_type'].lower()
-        ml_filters['category'] = type_to_category.get(product_type)
+        # Default to Title Case if not in map, or use the map
+        ml_filters['category'] = type_to_category.get(product_type, product_type.title())
     
     print(f"🎯 ML Filters: {ml_filters}")
     
@@ -804,21 +818,28 @@ Please let me know how I can help you find what you're looking for!"""
         # ============================================================================
         # Format ONLY real products from catalog
         # ============================================================================
+        # ... inside recommendation_agent function ...
+
+        # Format ONLY real products from catalog
         customer_name = customer_context.get('profile', {}).get('name', '')
         greeting = f"Hi {customer_name}! " if customer_name else ""
         
         output = f"{greeting}Based on your request, here are my recommendations:\n\n"
         
         for i, rec in enumerate(recommendations, 1):
-            repurchase_note = " ⭐" if rec.get('is_repurchase') else ""
-            output += f"{i}. **{rec['product_name']}** by {rec['brand']}{repurchase_note}\n"
-            output += f"   • Price: ₹{rec['price']:,.0f} | Color: {rec['color']}\n"
-            output += f"   • {rec['description']}\n\n"
+            repurchase_note = " (Buy Again)" if rec.get('is_repurchase') else ""
+            
+            # REMOVED ** from product name below
+            output += f"{i}. {rec['product_name']} by {rec['brand']}{repurchase_note}\n"
+            output += f"   Price: INR {rec['price']:,.0f} | Color: {rec['color']}\n"
+            output += f"   {rec['description']}\n\n"
         
-        # Show what filters were applied
+        # Show what filters were applied (Clean format)
         if ml_filters:
-            filter_summary = ', '.join([f'{k}={v}' for k, v in ml_filters.items()])
-            output += f"\n🔍 Filtered by: {filter_summary}"
+            filter_summary = ', '.join([f'{k}: {v}' for k, v in ml_filters.items()])
+            output += f"\nFiltered by: {filter_summary}"
+            
+        # ... rest of the function ...
         
         print(f"✅ Returning {len(recommendations)} real products from catalog")
         
@@ -955,17 +976,19 @@ Provide score and reasoning."""
         customer_name = profile.get('name', '')
         greeting = f"{customer_name}, " if customer_name else ""
         
+        # ... inside if confidence >= 0.7: block ...
+        
         user_message = f"""Dear {greeting}
 
-I completely understand your frustration, and I sincerely apologize for the inconvenience you're experiencing.
+I completely understand your frustration, and I sincerely apologize for the inconvenience you are experiencing.
 
-I've immediately escalated your concern to our senior support team. Your case has been flagged as high priority and sent to our supervisor dashboard.
+I have immediately escalated your concern to our senior support team. Your case has been flagged as high priority.
 
 What happens next:
-• A senior specialist will review your case immediately
-• They have full access to your account details and purchase history
-• You'll be contacted within the next 2 hours
-• We'll ensure this is resolved to your complete satisfaction
+- A senior specialist will review your case immediately.
+- They have full access to your account details and purchase history.
+- You will be contacted within the next 2 hours.
+- We will ensure this is resolved to your complete satisfaction.
 
 Your patience is greatly appreciated. We truly value your business and will make this right.
 
@@ -1239,31 +1262,42 @@ def health_check():
     })
 
 
+# 6. UPDATE LOGIN TO RETURN SESSION TOKEN
 @app.route("/login", methods=["POST"])
 def login():
-    """Login endpoint"""
-    data = request.get_json()
-    email = data.get("email")
+    """Login endpoint with session management"""
+    try:
+        data = request.get_json()
+        email = data.get("email")
 
-    if not email:
-        return jsonify({"error": "Email required"}), 400
+        if not email:
+            return jsonify({"error": "Email required"}), 400
 
-    customer_id = customer_db.get_customer_by_email(email)
-    if not customer_id:
-        return jsonify({"error": "Email not registered"}), 401
+        customer_id = customer_db.get_customer_by_email(email)
+        if not customer_id:
+            return jsonify({"error": "Email not registered"}), 401
 
-    context = get_customer_context(customer_id)
+        context = get_customer_context(customer_id)
+        
+        # Get conversation history
+        conversation_history = customer_db.get_conversation_history(customer_id, limit=20)
 
-    return jsonify({
-        "customer_id": customer_id,
-        "profile": context["profile"],
-        "insights": context["insights"]
-    })
-
+        return jsonify({
+            "success": True,
+            "customer_id": customer_id,
+            "email": email,
+            "profile": context["profile"],
+            "insights": context["insights"],
+            "conversation_history": conversation_history,
+            "session_created": datetime.now().isoformat()
+        })
+    except Exception as e:
+        print(f"Login error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/chat', methods=['POST', 'OPTIONS'])
 def chat():
-    """Main chat endpoint with streaming"""
+    """Main chat endpoint with streaming and session persistence"""
 
     if request.method == 'OPTIONS':
         return '', 204
@@ -1272,19 +1306,37 @@ def chat():
         data = request.get_json()
         user_message = data.get('message', '').strip()
         email = data.get('email')
+        customer_id = data.get('customer_id')
 
+        # Determine customer_id
         if email:
             customer_id = customer_db.get_customer_by_email(email)
             if not customer_id:
-                return jsonify({"error": "Email not registered"}), 401
-        else:
+                return jsonify({
+                    "error": "Session expired. Please login again.",
+                    "code": "SESSION_EXPIRED"
+                }), 401
+        elif not customer_id:
             customer_id = "GUEST"
 
         if not user_message:
             return jsonify({'error': 'Message is required'}), 400
 
+        response_headers = {
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive',
+            'X-Customer-ID': customer_id,
+            'X-Customer-Email': email if email else 'GUEST'
+        }
+
         def generate():
             try:
+                yield create_sse_message('session_info', {
+                    'customer_id': customer_id,
+                    'email': email if email else None
+                })
+                
                 yield create_sse_message('start', {'message': 'Processing...'})
 
                 for event in run_customer_support_streaming(user_message, customer_id):
@@ -1304,23 +1356,48 @@ def chat():
                 print(f"❌ Generate error: {e}")
                 import traceback
                 traceback.print_exc()
-                yield create_sse_message('error', {'message': f'Error: {str(e)}'})
+        # ✅ REMOVE should_logout completely
+                yield create_sse_message('error', {
+                    'message': f'Error: {str(e)}'
+        })
 
         return Response(
             generate(),
             mimetype='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache',
-                'X-Accel-Buffering': 'no',
-                'Connection': 'keep-alive'
-            }
+            headers=response_headers
         )
 
     except Exception as e:
         print(f"❌ Chat error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # ✅ FIX #4: ALWAYS return SSE format, NEVER JSON
+        def error_stream():
+            yield create_sse_message('error', {
+                'message': str(e)
+            })
+        
+        return Response(error_stream(), mimetype='text/event-stream')
+
+
+# 7. ADD LOGOUT ENDPOINT
+@app.route('/logout', methods=['POST'])
+def logout():
+    """Logout endpoint"""
+    try:
+        data = request.get_json()
+        customer_id = data.get('customer_id')
+        
+        # Optional: Add any cleanup logic here
+        
+        return jsonify({
+            'success': True,
+            'message': 'Logged out successfully'
+        })
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-
+    
 @app.route('/customer/<customer_id>', methods=['GET'])
 def get_customer_profile(customer_id: str):
     """Get customer profile and history"""
@@ -1379,15 +1456,101 @@ def add_purchase():
         return jsonify({'error': str(e)}), 500
 
 
+
+
+# 5. UPDATE CONVERSATION ENDPOINT TO HANDLE MISSING SESSIONS
 @app.route('/conversation/<customer_id>', methods=['GET'])
 def get_conversation(customer_id: str):
-    """Get conversation history"""
+    """Get conversation history - with session validation"""
     try:
+        # Verify customer exists
+        profile = customer_db.get_customer(customer_id)
+        if not profile and customer_id != "GUEST":
+            return jsonify({
+                'error': 'Customer not found',
+                'conversation_history': [],
+                'should_logout': True
+            }), 404
+        
         limit = request.args.get('limit', 20, type=int)
         history = customer_db.get_conversation_history(customer_id, limit=limit)
-        return jsonify({'conversation_history': history})
+        
+        return jsonify({
+            'conversation_history': history,
+            'customer_id': customer_id,
+            'timestamp': datetime.now().isoformat()
+        })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Error getting conversation: {e}")
+        return jsonify({
+            'error': str(e),
+            'conversation_history': []
+        }), 500
+
+# 4. ADD KEEP-ALIVE ENDPOINT
+@app.route('/session/ping', methods=['POST'])
+def session_ping():
+    """Keep session alive"""
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({'alive': True, 'guest': True})
+        
+        customer_id = customer_db.get_customer_by_email(email)
+        if not customer_id:
+            return jsonify({
+                'alive': False,
+                'error': 'Session expired'
+            }), 401
+        
+        return jsonify({
+            'alive': True,
+            'customer_id': customer_id,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'alive': False, 'error': str(e)}), 500
+
+# 3. ADD SESSION REFRESH ENDPOINT
+@app.route('/session/refresh', methods=['POST'])
+def refresh_session():
+    """Refresh user session and return current state"""
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        customer_id = data.get('customer_id')
+        
+        if email:
+            customer_id = customer_db.get_customer_by_email(email)
+            if not customer_id:
+                return jsonify({
+                    'error': 'Session expired',
+                    'valid': False
+                }), 401
+        elif not customer_id:
+            return jsonify({
+                'error': 'No session found',
+                'valid': False
+            }), 400
+        
+        # Get fresh context
+        context = get_customer_context(customer_id)
+        
+        return jsonify({
+            'valid': True,
+            'customer_id': customer_id,
+            'profile': context['profile'],
+            'insights': context['insights'],
+            'message': 'Session refreshed'
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'valid': False
+        }), 500
+
 
 
 @app.route('/reset/<customer_id>', methods=['POST'])
@@ -1398,6 +1561,46 @@ def reset_conversation(customer_id: str):
         return jsonify({'message': 'Conversation reset successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# 1. ADD SESSION VALIDATION MIDDLEWARE (Add after CORS setup)
+from functools import wraps
+
+def validate_session(f):
+    """Middleware to validate customer session"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            # For GET requests, check query params
+            if request.method == 'GET':
+                customer_id = request.args.get('customer_id')
+                email = request.args.get('email')
+            # For POST requests, check JSON body
+            else:
+                data = request.get_json()
+                customer_id = data.get('customer_id') if data else None
+                email = data.get('email') if data else None
+            
+            # If neither provided, allow (for guest users)
+            if not customer_id and not email:
+                return f(*args, **kwargs)
+            
+            # If email provided, verify it exists
+            if email:
+                verified_id = customer_db.get_customer_by_email(email)
+                if not verified_id:
+                    return jsonify({
+                        'error': 'Session expired',
+                        'code': 'SESSION_EXPIRED'
+                    }), 401
+            
+            return f(*args, **kwargs)
+        except Exception as e:
+            print(f"Session validation error: {e}")
+            return f(*args, **kwargs)  # Allow to continue on validation errors
+    
+    return decorated_function
+
+
 
 
 @app.route('/debug/ml-status', methods=['GET'])
@@ -1580,5 +1783,5 @@ if __name__ == '__main__':
         port=5000,
         debug=True,
         threaded=True,
-        use_reloader=True
+        use_reloader=False
     )
