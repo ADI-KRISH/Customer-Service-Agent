@@ -191,12 +191,13 @@ DB_PATH = "YOUR_PATH/customer_support.db"
 const response = await fetch("http://YOUR_SERVER:5000/chat", {
 ```
 --- 
+### Add Category Column to Dataset
 
-### Add category column to dataset 
-'''bash
+Run the category generation script to add a `Category` column to the product catalog:
+
+```bash
 cd data
-python category.p
-'''
+python category.py
 
 ##  Running the Application
 
