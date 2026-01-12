@@ -1,10 +1,10 @@
-#  Multi-Agent Customer Support AI System
+# Multi-Agent Customer Support AI System
 
 > An intelligent, LangGraph-powered customer support system with personalized product recommendations, session persistence, and supervisor escalation dashboard.
 
 ---
 
-##  Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Features](#features)
@@ -17,12 +17,14 @@
 - [Agent Workflows](#agent-workflows)
 - [Database Schema](#database-schema)
 - [ML Recommendation System](#ml-recommendation-system)
+- [Testing](#testing)
+- [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 
 ---
 
-##  Overview
+## Overview
 
 This project implements a **multi-agent customer support system** that intelligently routes customer queries to specialized agents:
 
@@ -34,38 +36,39 @@ The system features **session persistence**, **streaming responses**, and a **re
 
 ---
 
-##  Features
+## Features
 
 ### Core Functionality
--  **Multi-Agent Orchestration** using LangGraph
--  **Intelligent Query Routing** based on intent
--  **ML-Powered Product Recommendations** (LightGBM + Sentence Transformers)
--  **Session Persistence** (survives page reloads)
--  **Real-time Streaming Responses** (SSE)
--  **Customer Profile & Purchase History Integration**
--  **Supervisor Escalation Dashboard**
+- Multi-Agent Orchestration using LangGraph
+- Intelligent Query Routing based on intent
+- ML-Powered Product Recommendations (LightGBM + Sentence Transformers)
+- Session Persistence (survives page reloads)
+- Real-time Streaming Responses (SSE)
+- Customer Profile & Purchase History Integration
+- Supervisor Escalation Dashboard
 
 ### User Experience
--  Guest & Registered User Support
--  Personalized Greetings & Recommendations
--  Filter-based Product Search (brand, price, gender, category)
--  Conversation History Tracking
--  Mobile-Responsive Design
+- Guest & Registered User Support
+- Personalized Greetings & Recommendations
+- Filter-based Product Search (brand, price, gender, category)
+- Conversation History Tracking
+- Mobile-Responsive Design
 
 ### Security & Performance
--  No localStorage usage (artifact-safe)
--  Session validation middleware
--  Error handling & graceful degradation
--  NO LLM hallucination (ML catalog as source of truth)
+- No localStorage usage (artifact-safe)
+- Session validation middleware
+- Error handling & graceful degradation
+- NO LLM hallucination (ML catalog as source of truth)
 
 ---
 
-##  Architecture
+## Architecture
 
-<img width="5654" height="8192" alt="agentic workflow" src="https://github.com/user-attachments/assets/47deceae-c3cb-41b6-a7ec-6a80d0c67b04" />
+![Agentic Workflow](https://github.com/user-attachments/assets/47deceae-c3cb-41b6-a7ec-6a80d0c67b04)
 
+---
 
-##  Tech Stack
+## Tech Stack
 
 ### Backend
 - **Python 3.9+**
@@ -90,7 +93,7 @@ The system features **session persistence**, **streaming responses**, and a **re
 
 ---
 
-##  Installation
+## Installation
 
 ### Prerequisites
 ```bash
@@ -107,7 +110,12 @@ cd customer-support-ai
 ### 2. Create Virtual Environment
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
+```
+
+On Windows:
+```bash
+venv\Scripts\activate
 ```
 
 ### 3. Install Python Dependencies
@@ -167,13 +175,12 @@ This will generate:
 
 ---
 
-##  Configuration
+## Configuration
 
 ### Update File Paths
 
 **In `main.py`:**
 ```python
-# Line 20-22
 RECOMMENDER_MODEL = joblib.load(r"YOUR_PATH/recommender_model.pkl")
 FEATURE_BUILDER = joblib.load(r"YOUR_PATH/feature_builder.pkl")
 PRODUCT_CATALOG = pd.read_csv(r"YOUR_PATH/myntra_products_catalog_v2.csv")
@@ -181,16 +188,14 @@ PRODUCT_CATALOG = pd.read_csv(r"YOUR_PATH/myntra_products_catalog_v2.csv")
 
 **In `database.py`:**
 ```python
-# Line 6
 DB_PATH = "YOUR_PATH/customer_support.db"
 ```
 
 **In `frontend/index.html`:**
 ```javascript
-// Line 158 (if different from localhost)
 const response = await fetch("http://YOUR_SERVER:5000/chat", {
 ```
---- 
+
 ### Add Category Column to Dataset
 
 Run the category generation script to add a `Category` column to the product catalog:
@@ -198,8 +203,11 @@ Run the category generation script to add a `Category` column to the product cat
 ```bash
 cd data
 python category.py
+```
 
-##  Running the Application
+---
+
+## Running the Application
 
 ### 1. Start Backend Server
 ```bash
@@ -211,11 +219,11 @@ Server starts on: `http://localhost:5000`
 
 ### 2. Open Frontend
 ```bash
-# Navigate to frontend directory
 cd frontend
+```
 
-# Open index.html in browser
-# OR use a simple server:
+Open index.html in browser or use a simple server:
+```bash
 python -m http.server 8000
 ```
 
@@ -224,15 +232,15 @@ Frontend available at: `http://localhost:8000`
 ### 3. Open Supervisor Dashboard
 ```bash
 cd supervisor_dashboard
-# Open supervisor.html in browser
 ```
+
+Open supervisor.html in browser
 
 Dashboard available at: `file:///path/to/supervisor.html`
 
 ---
 
-
-##  API Documentation
+## API Documentation
 
 ### Authentication
 
@@ -273,7 +281,7 @@ Dashboard available at: `file:///path/to/supervisor.html`
 ```json
 {
   "message": "Show me Nike shoes under 5000",
-  "email": "john@example.com"  // Optional for guests
+  "email": "john@example.com"
 }
 ```
 
@@ -327,7 +335,7 @@ Mark escalation as resolved.
 
 ---
 
-##  Agent Workflows
+## Agent Workflows
 
 ### 1. Support Agent Flow
 ```
@@ -370,7 +378,7 @@ User Query → Orchestrator → Escalation Agent
 
 ---
 
-## 🗄️ Database Schema
+## Database Schema
 
 ### Customers Table
 ```sql
@@ -419,9 +427,25 @@ CREATE TABLE conversations (
 );
 ```
 
+### Escalations Table
+```sql
+CREATE TABLE escalations (
+    escalation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id TEXT NOT NULL,
+    query TEXT NOT NULL,
+    reason TEXT,
+    confidence_score REAL,
+    status TEXT DEFAULT 'pending',
+    supervisor_response TEXT,
+    created_at TIMESTAMP,
+    resolved_at TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+```
+
 ---
 
-##  ML Recommendation System
+## ML Recommendation System
 
 ### Architecture
 1. **Feature Engineering** (`preprocessing.py`)
@@ -435,25 +459,71 @@ CREATE TABLE conversations (
    - Semantic similarity as pseudo-labels
    - Ranking-based evaluation (Precision@K, Recall@K)
 
-
 ### Key Features
--  **NO LLM Hallucination**: Only real products from catalog
--  **Personalized Ranking**: Based on purchase history
--  **Dynamic Filtering**: Price, brand, category, gender
--  **Semantic Search**: Natural language understanding
+- **NO LLM Hallucination**: Only real products from catalog
+- **Personalized Ranking**: Based on purchase history
+- **Dynamic Filtering**: Price, brand, category, gender
+- **Semantic Search**: Natural language understanding
 
 ---
 
-##  Troubleshooting
+## Testing
+
+### Test Sample Users
+```
+john@example.com  - 3 purchases, ₹13,997 spent
+jane@example.com  - 2 purchases, ₹11,998 spent
+alex@example.com  - 0 purchases
+```
+
+### Test Queries
+```
+"Show me Adidas shoes under 5000"
+"I need formal shoes for men"
+"Suggest something similar to what I bought"
+"What is your return policy?"
+"I want a refund for my order!"
+```
+
+---
+
+## Project Structure
+
+```
+customer-support-ai/
+├── backend/
+│   ├── main.py
+│   ├── Database/
+│   │   └── database.py
+│   ├── recommendation_system/
+│   │   ├── train.py
+│   │   └── preprocessing.py
+│   ├── vector_store.py
+│   └── build_vector_store.py
+├── frontend/
+│   └── index.html
+├── supervisor_dashboard/
+│   └── queries.html
+├── data/
+│   ├── myntra_products_catalog.csv
+│   └── category.py
+├── .env
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## Troubleshooting
 
 ### Issue: Session Lost on Page Reload
-**Solution:** Ensure `sessionLoadedRef` is implemented correctly in `index.html` (lines 74-102).
+**Solution:** Ensure `sessionLoadedRef` is implemented correctly in `index.html`.
 
 ### Issue: ML Models Not Loading
 **Solution:**
-1. Check file paths in `main.py` (lines 60-75)
+1. Check file paths in `main.py`
 2. Verify `.pkl` files exist in `recommendation_system/` directory
-3. Run `train_lightgbm.py` to regenerate models
+3. Run `train.py` to regenerate models
 
 ### Issue: Database Connection Error
 **Solution:**
@@ -481,59 +551,24 @@ CORS(app, resources={
 
 ---
 
-##  Testing
-
-### Test Sample Users
-```
-john@example.com  - 3 purchases, ₹13,997 spent
-jane@example.com  - 2 purchases, ₹11,998 spent
-alex@example.com  - 0 purchases
-```
-
-### Test Queries
-```
-"Show me Adidas shoes under 5000"
-"I need formal shoes for men"
-"Suggest something similar to what I bought"
-"What is your return policy?"
-"I want a refund for my order!"  (triggers escalation)
-```
-
----
-
-##  Project Structure
-
-```
-customer-support-ai/
-├── backend/
-│   ├── main.py                 # Flask server + agents
-│   ├── Database/
-│   │   └── database.py         # SQLite operations
-│   ├── recommendation_system/
-│   │   ├── train.py   # Model training
-│   │   ├── preprocessing.py    # Feature engineering
-│   │     
-│   ├── vector_store.py         # FAISS policy store
-│   └── build_vector_store.py   # Policy indexing
-├── frontend/
-│   └── index.html              # React chat interface
-├── supervisor_dashboard/
-│   └── queries.html         # Escalation management
-├── data/
-│   └── myntra_products_catalog.csv
-├── .env
-├── requirements.txt
-└── README.md
-```
-
----
-
-##  Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Commit changes: `git commit -m 'Add amazing feature'`
 4. Push to branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
+
+---
+
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+## Contact
+
+For questions or support, please open an issue on GitHub.
 
 ---
