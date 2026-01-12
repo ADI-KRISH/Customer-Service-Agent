@@ -193,10 +193,10 @@ const response = await fetch("http://YOUR_SERVER:5000/chat", {
 --- 
 
 ### Add category column to dataset 
----bash
+'''bash
 cd data 
 python category.py
----
+'''
 
 ##  Running the Application
 
