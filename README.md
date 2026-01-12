@@ -543,13 +543,6 @@ CORS(app, resources={
 })
 ```
 
-### Issue: Streaming Not Working
-**Solution:**
-1. Check SSE headers in `/chat` endpoint
-2. Verify `create_sse_message()` format
-3. Test with: `curl -N http://localhost:5000/chat -X POST -d '{"message":"test"}'`
-
----
 
 ## Contributing
 
@@ -561,14 +554,3 @@ CORS(app, resources={
 
 ---
 
-## License
-
-This project is licensed under the MIT License.
-
----
-
-## Contact
-
-For questions or support, please open an issue on GitHub.
-
----
