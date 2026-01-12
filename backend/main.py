@@ -17,34 +17,23 @@ import re
 import time
 import json
 import sys
-sys.path.append(r"C:/Users/GS Adithya Krishna\Desktop/internship\backend\Database\database.py")
+sys.path.append(r"path to database.py")
 from Database.database import CustomerDatabase
 
 load_dotenv()
 
-# ============================================================================
 # FLASK APP SETUP
-# ============================================================================
+frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
 
-app = Flask(__name__)
-CORS(app, resources={
-    r"/*": {
-        "origins": "*",
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
-    }
-})
+app = Flask(__name__, static_folder=frontend_dir, static_url_path='')
+CORS(app) # CORS is less critical now as we are on the same origin
 
-# ============================================================================
 # DATABASE INITIALIZATION
-# ============================================================================
 
 customer_db = CustomerDatabase()
 print("Using DB:", os.path.abspath(customer_db.db_path))
 
-# ============================================================================
 # ML MODELS INITIALIZATION
-# ============================================================================
 
 RECOMMENDER_MODEL = None
 FEATURE_BUILDER = None
@@ -61,21 +50,21 @@ def initialize_ml_models():
     global PRODUCT_FEATURES, TEXT_MODEL, PRODUCT_EMBEDDINGS, ML_LOADED
     
     try:
-        RECOMMENDER_MODEL = joblib.load(r"C:/Users/GS Adithya Krishna\Desktop/internship/recommendation_system/recommender_model.pkl")
-        FEATURE_BUILDER = joblib.load(r"C:/Users/GS Adithya Krishna\Desktop/internship/recommendation_system/feature_builder.pkl")
-        PRODUCT_CATALOG = pd.read_csv(r"C:/Users/GS Adithya Krishna\Desktop/internship\data/myntra_products_catalog_v2.csv")
+        RECOMMENDER_MODEL = joblib.load(r" path to recommender_model.pkl")
+        FEATURE_BUILDER = joblib.load(r"path to feature builder.pkl")
+        PRODUCT_CATALOG = pd.read_csv(r"path to dataset)
         
-        print("📄 Precomputing product features...")
+        print(" Precomputing product features...")
         PRODUCT_FEATURES = FEATURE_BUILDER.transform_products(PRODUCT_CATALOG)
         
         TEXT_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
         product_texts = (PRODUCT_CATALOG['ProductName'] + " " + PRODUCT_CATALOG['Description']).tolist()
         PRODUCT_EMBEDDINGS = TEXT_MODEL.encode(product_texts, show_progress_bar=False)
         
-        print("✅ ML models and catalog loaded successfully")
+        print("ML models and catalog loaded successfully")
         ML_LOADED = True
     except Exception as e:
-        print(f"⚠️ Could not load ML models: {e}")
+        print(f"Could not load ML models: {e}")
         ML_LOADED = False
 
 
@@ -91,9 +80,7 @@ except ImportError:
         ]
 
 
-# ============================================================================
 # PYDANTIC MODELS & STATE
-# ============================================================================
 
 class State(TypedDict):
     messages: Annotated[List[BaseMessage], add]
@@ -139,9 +126,7 @@ class Clarification_Schema(BaseModel):
     reasoning: str = Field(default="")
 
 
-# ============================================================================
 # HELPER FUNCTIONS
-# ============================================================================
 
 def get_customer_context(customer_id: str) -> Dict:
     """Get comprehensive customer context for recommendations"""
@@ -201,9 +186,7 @@ def format_customer_context_for_llm(context: Dict) -> str:
     return formatted.strip()
 
 
-# ============================================================================
 # AGENT FUNCTIONS
-# ============================================================================
 
 def orchestrator(state: State) -> State:
     """Routes queries to appropriate agents"""
@@ -254,7 +237,7 @@ Answer with ONLY the agent name: "Support Agent" OR "Query Parser" OR "Escalatio
         response = orchestrator_llm.invoke([HumanMessage(content=prompt)])
         decision = response.content.strip().lower()
         
-        print(f"🤔 LLM Decision: {decision}")
+        print(f" LLM Decision: {decision}")
         
         if 'query parser' in decision or 'parser' in decision:
             routing = 'Query Parser'
@@ -264,9 +247,9 @@ Answer with ONLY the agent name: "Support Agent" OR "Query Parser" OR "Escalatio
             routing = 'Escalation Agent'
         else:
             routing = 'Support Agent'
-            print(f"⚠️ Could not parse decision, defaulting to Support Agent")
+            print(f" Could not parse decision, defaulting to Support Agent")
         
-        print(f"🔀 Routing to: {routing}")
+        print(f" Routing to: {routing}")
         
         return {
             'messages': [AIMessage(content=f"[Orchestrator] Routing to: {routing}", name="orchestrator")],
@@ -277,7 +260,7 @@ Answer with ONLY the agent name: "Support Agent" OR "Query Parser" OR "Escalatio
     
     # After Query Parser: Route to Recommendation Agent
     if current_agent == 'Query Parser':
-        print("💡 Query parsed, routing to Recommendation Agent")
+        print(" Query parsed, routing to Recommendation Agent")
         return {
             'messages': [AIMessage(content="[Orchestrator] Getting recommendations...", name="orchestrator")],
             'next_agent': 'Recommendation Agent',
@@ -286,39 +269,65 @@ Answer with ONLY the agent name: "Support Agent" OR "Query Parser" OR "Escalatio
         }
     
     # Check if agent completed work
+    # Decide if the workflow should finish or continue
     if iteration > 0:
-        agent_completed_work = False
-        
-        if current_agent == 'Support Agent' and results:
-            agent_completed_work = True
-        elif current_agent == 'Recommendation Agent' and recommendations:
-            agent_completed_work = True
-        elif current_agent == 'Escalation Agent' and confidence_score > 0:
-            agent_completed_work = True
-        
-        if agent_completed_work:
-            print(f"✅ Work Complete")
+
+    # If Query Parser just ran, we MUST go to Recommendation Agent
+        if current_agent == "Query Parser":
+            print(" Parsed filters ready, moving to Recommendation Agent")
             return {
-                'messages': [AIMessage(content=f"[Orchestrator] Task Complete", name="orchestrator")],
-                'next_agent': 'Finish',
-                'current_agent': 'Orchestrator',
-                'iteration': iteration + 1
+            'messages': [AIMessage(content="[Orchestrator] Sending to Recommendation Agent", name="orchestrator")],
+            'next_agent': 'Recommendation Agent',
+            'current_agent': 'Orchestrator',
+            'iteration': iteration + 1
+        }
+
+    # If Support Agent gave a response → done
+        if current_agent == "Support Agent" and results:
+            print(" Support response complete")
+            return {
+            'messages': [AIMessage(content="[Orchestrator] Support task complete", name="orchestrator")],
+            'next_agent': 'Finish',
+            'current_agent': 'Orchestrator',
+            'iteration': iteration + 1
             }
-        
-        print("⚠️ Warning: Agent didn't complete work, forcing finish")
-        return {
-            'messages': [AIMessage(content="[Orchestrator] Forcing completion", name="orchestrator")],
+
+    # If Recommendation Agent gave recommendations → done
+        if current_agent == "Recommendation Agent" and recommendations:
+            print(" Recommendations ready")
+            return {
+            'messages': [AIMessage(content="[Orchestrator] Recommendation complete", name="orchestrator")],
             'next_agent': 'Finish',
             'current_agent': 'Orchestrator',
             'iteration': iteration + 1
         }
+
+    # If Escalation Agent ran → always finish
+        if current_agent == "Escalation Agent":
+            print(" Escalation handled")
+            return {
+            'messages': [AIMessage(content="[Orchestrator] Escalation handled", name="orchestrator")],
+            'next_agent': 'Finish',
+            'current_agent': 'Orchestrator',
+            'iteration': iteration + 1
+        }
+
+    # Otherwise do NOT kill the workflow
+        print(" Workflow not finished yet, waiting for next agent")
+        return {
+        'messages': [AIMessage(content="[Orchestrator] Continuing workflow", name="orchestrator")],
+        'next_agent': state.get("next_agent", "Finish"),
+        'current_agent': 'Orchestrator',
+        'iteration': iteration + 1
+    }
+
 
 
 def query_parser_agent(state: State) -> State:
     """Extracts structured filters from natural language queries"""
     
     print(f"\n{'='*80}")
-    print(f"🔍 QUERY PARSER AGENT EXECUTING")
+    print(f" QUERY PARSER AGENT EXECUTING")
     print(f"{'='*80}")
     
     parser_llm = ChatOpenAI(
@@ -406,8 +415,8 @@ Now parse this query:"""
         
         filters = {k: v for k, v in filters.items() if v is not None}
         
-        print(f"✅ Parsed filters: {filters}")
-        print(f"💭 Reasoning: {parsed.reasoning}")
+        print(f" Parsed filters: {filters}")
+        print(f" Reasoning: {parsed.reasoning}")
         
         return {
             'messages': [AIMessage(content=f"[Query Parser] Extracted filters: {filters}", name="query_parser")],
@@ -417,7 +426,7 @@ Now parse this query:"""
         }
     
     except Exception as e:
-        print(f"❌ Parsing error: {e}")
+        print(f Parsing error: {e}")
         return {
             'messages': [AIMessage(content=f"[Query Parser] Error parsing query", name="query_parser")],
             'parsed_filters': {},
@@ -430,7 +439,7 @@ def support_agent(state: State) -> State:
     """Handles general customer support queries"""
     
     print(f"\n{'='*80}")
-    print(f"🔧 SUPPORT AGENT EXECUTING")
+    print(f SUPPORT AGENT EXECUTING")
     print(f"{'='*80}")
     
     support_llm = ChatOpenAI(
@@ -467,7 +476,7 @@ If answerable, set needs_clarification to False."""
         clarification_check = clarification_llm.invoke([HumanMessage(content=clarification_prompt)])
         
         if clarification_check.needs_clarification:
-            print(f"❓ Needs clarification: {clarification_check.clarification_question}")
+            print(f" Needs clarification: {clarification_check.clarification_question}")
             return {
                 'messages': [AIMessage(content=f"[Support Agent] {clarification_check.clarification_question}", name="support_agent")],
                 'needs_clarification': True,
@@ -478,15 +487,15 @@ If answerable, set needs_clarification to False."""
                 'agents_executed': ['Support Agent']
             }
     except Exception as e:
-        print(f"⚠️ Clarification check error: {e}")
+        print(f" Clarification check error: {e}")
     
     try:
         search_results = search(query, k=3)
         context = '\n'.join([f"- {result['text']}" for result in search_results])
-        print(f"📚 Retrieved {len(search_results)} relevant documents")
+        print(f" Retrieved {len(search_results)} relevant documents")
     except Exception as e:
         context = "No relevant context found."
-        print(f"⚠️ Search error: {e}")
+        print(f" Search error: {e}")
     
     customer_context_str = format_customer_context_for_llm(customer_context)
     
@@ -514,7 +523,7 @@ Your response:"""
     
     response = support_llm.invoke([HumanMessage(content=prompt)])
     
-    print(f"✅ Support response generated")
+    print(f" Support response generated")
     
     return {
         'messages': [AIMessage(content=f"[Support Agent] {response.content}", name="support_agent")],
@@ -533,7 +542,7 @@ def get_ml_recommendations(query: str, customer_context: Dict,
     if not ML_LOADED:
         return []
     
-    print(f"\n🤖 ML Engine: Processing with filters={filters}, use_history={use_history}")
+    print(f"\n ML Engine: Processing with filters={filters}, use_history={use_history}")
     
     profile = customer_context.get('profile', {})
     insights = customer_context.get('insights', {})
@@ -576,7 +585,7 @@ def get_ml_recommendations(query: str, customer_context: Dict,
     print(f"📊 After filtering: {valid_mask.sum()} products remain")
     
     if valid_mask.sum() == 0:
-        print("⚠️ No products after strict filters. Relaxing gender...")
+        print(" No products after strict filters. Relaxing gender...")
         
         # Remove gender constraint
         relaxed_mask = np.ones(len(PRODUCT_CATALOG), dtype=bool)
@@ -591,7 +600,7 @@ def get_ml_recommendations(query: str, customer_context: Dict,
         if relaxed_mask.sum() > 0:
             valid_mask = relaxed_mask
         else:
-            print("⚠️ Still no products after relaxing filters")
+            print(" Still no products after relaxing filters")
             return []
     
     # Semantic search
@@ -603,7 +612,7 @@ def get_ml_recommendations(query: str, customer_context: Dict,
     
     # If use_history=True, boost products similar to past purchases
     if use_history and purchase_history:
-        print("💡 Boosting based on purchase history...")
+        print(" Boosting based on purchase history...")
         purchased_categories = [p.get('category') for p in purchase_history if p.get('category')]
         purchased_brands = [p.get('product_brand') for p in purchase_history if p.get('product_brand')]
         
@@ -618,7 +627,7 @@ def get_ml_recommendations(query: str, customer_context: Dict,
         for brand in insights['favorite_brands']:
             brand_mask = PRODUCT_CATALOG['ProductBrand'] == brand
             combined_scores[brand_mask.values] += 0.15
-            print(f"💡 Boosting favorite brand: {brand}")
+            print(f" Boosting favorite brand: {brand}")
     
     # Apply mask
     combined_scores[~valid_mask] = -1
@@ -659,91 +668,71 @@ def get_ml_recommendations(query: str, customer_context: Dict,
             'is_repurchase': is_repurchase
         })
     
-    print(f"✅ Returning {len(recommendations)} recommendations")
+    print(f" Returning {len(recommendations)} recommendations")
     return recommendations
 
-
 def recommendation_agent(state: State) -> State:
-    """Provides personalized product recommendations using parsed filters - NO LLM FALLBACK"""
-    
+    """ML decides products, LLM explains them (NO hallucination)"""
+
     print(f"\n{'='*80}")
-    print(f"💡 RECOMMENDATION AGENT EXECUTING")
+    print(f" RECOMMENDATION AGENT EXECUTING")
     print(f"{'='*80}")
-    
+
     query = state.get('task', '')
     customer_context = state.get('customer_context') or {}
     parsed_filters = state.get('parsed_filters', {})
-    
-    print(f"📋 Using parsed filters: {parsed_filters}")
-    
+
     recommendation_llm = ChatOpenAI(
         model="gpt-4o-mini",
         api_key=os.getenv("OPENAI_API_KEY")
     )
-    
-    # Check for clarification need
-    query_words = query.lower().split()
-    has_customer_profile = customer_context.get('profile') is not None
-    has_any_filters = len(parsed_filters) > 0
-    
-    # Generic queries need clarification (especially for guests)
-    is_generic_query = not has_any_filters or (
-        parsed_filters.get('use_purchase_history') and not has_customer_profile
-    )
-    
-    # For guests with generic queries, ask for details
-    if not has_customer_profile and is_generic_query:
-        clarification_msg = "I'd be happy to help you find products! To give you the best recommendations, could you tell me:\n- What type of product? (shoes, shirts, pants, etc.)\n- Any preferred brands?\n- Your budget range?"
-        print(f"❓ Guest user needs more details")
+
+    # ───────────────────────────────────────────────
+    # Guest clarification
+    # ───────────────────────────────────────────────
+    has_profile = customer_context.get('profile') is not None
+    has_filters = len(parsed_filters) > 0
+
+    if not has_profile and not has_filters and not parsed_filters.get('category') and not parsed_filters.get('max_price'):
+        clarification = (
+            "I’d love to help you find the right product \n\n"
+            "Could you please tell me:\n"
+            "• What type of product? (shoes, shirts, pants, etc.)\n"
+            "• Any preferred brands?\n"
+            "• Your budget range?"
+        )
+
         return {
-            'messages': [AIMessage(content=clarification_msg, name="recommendation_agent")],
+            'messages': [AIMessage(content=clarification, name="recommendation_agent")],
+            'results': clarification,
+            'recommendations': clarification,
             'needs_clarification': True,
-            'clarification_question': clarification_msg,
-            'results': clarification_msg,
-            'recommendations': clarification_msg,
             'current_agent': 'Recommendation Agent',
             'agents_executed': ['Recommendation Agent']
         }
-    
-    # ============================================================================
-    # CRITICAL: Check if ML models are loaded - NO FALLBACK TO LLM
-    # ============================================================================
-    if not ML_LOADED:
-        error_msg = "I apologize, but our recommendation system is temporarily unavailable. Our product catalog will be back online soon. Please try again later or contact support for assistance."
-        print(f"❌ ML models not loaded - returning error message")
-        return {
-            'messages': [AIMessage(content=error_msg, name="recommendation_agent")],
-            'results': error_msg,
-            'recommendations': error_msg,
-            'current_agent': 'Recommendation Agent',
-            'agents_executed': ['Recommendation Agent'],
-            'needs_clarification': False
-        }
-    
-    # Convert parsed filters to ML model format
+
+    # ───────────────────────────────────────────────
+    # ML filters
+    # ───────────────────────────────────────────────
     ml_filters = {}
-    
+
     if parsed_filters.get('gender'):
         ml_filters['gender'] = parsed_filters['gender']
-    elif customer_context and customer_context.get('profile') and customer_context['profile'].get('gender'):
+    elif customer_context.get('profile') and customer_context['profile'].get('gender'):
         ml_filters['gender'] = customer_context['profile']['gender']
-    
-    if parsed_filters.get('max_price'):
-        ml_filters['max_price'] = parsed_filters['max_price']
-    
-    if parsed_filters.get('min_price'):
-        ml_filters['min_price'] = parsed_filters['min_price']
-    
+
     if parsed_filters.get('brand'):
         ml_filters['brand'] = parsed_filters['brand']
-    
-    # ... inside recommendation_agent function ...
-    
+
+    if parsed_filters.get('max_price'):
+        ml_filters['max_price'] = parsed_filters['max_price']
+
+    if parsed_filters.get('min_price'):
+        ml_filters['min_price'] = parsed_filters['min_price']
+
     if parsed_filters.get('category'):
         ml_filters['category'] = parsed_filters['category']
     elif parsed_filters.get('product_type'):
-        # Map product_type to category
-        # MAKE SURE THESE VALUES MATCH YOUR CSV 'Category' COLUMN EXACTLY
         type_to_category = {
             'shoes': 'Shoes',
             'sneakers': 'Shoes',
@@ -751,145 +740,111 @@ def recommendation_agent(state: State) -> State:
             'shirt': 'Topwear',
             't-shirt': 'Topwear',
             'pants': 'Bottomwear',
-            'trousers': 'Bottomwear',
             'jeans': 'Bottomwear',
+            'trousers': 'Bottomwear',
             'dress': 'Dress',
             'jacket': 'Topwear'
         }
-        product_type = parsed_filters['product_type'].lower()
-        # Default to Title Case if not in map, or use the map
-        ml_filters['category'] = type_to_category.get(product_type, product_type.title())
-    
-    print(f"🎯 ML Filters: {ml_filters}")
-    
-    # ============================================================================
-    # Get ML recommendations - ONLY SOURCE OF TRUTH
-    # ============================================================================
-    try:
-        recommendations = get_ml_recommendations(
-            query=query,
-            customer_context=customer_context,
-            filters=ml_filters,
-            use_history=parsed_filters.get('use_purchase_history', False),
-            top_k=5
-        )
-        
-        # ============================================================================
-        # CRITICAL: If no recommendations found, admit it - NO LLM HALLUCINATION
-        # ============================================================================
-        if not recommendations or len(recommendations) == 0:
-            customer_name = customer_context.get('profile', {}).get('name', '')
-            greeting = f"Hi {customer_name}! " if customer_name else ""
-            
-            # Build a helpful out-of-stock message
-            filter_description = []
-            if ml_filters.get('brand'):
-                filter_description.append(f"{ml_filters['brand']} brand")
-            if ml_filters.get('category'):
-                filter_description.append(f"{ml_filters['category'].lower()}")
-            if ml_filters.get('max_price'):
-                filter_description.append(f"under ₹{ml_filters['max_price']:,.0f}")
-            if ml_filters.get('gender'):
-                filter_description.append(f"for {ml_filters['gender'].lower()}")
-            
-            filter_text = " ".join(filter_description) if filter_description else "matching your criteria"
-            
-            out_of_stock_msg = f"""{greeting}I apologize, but we currently don't have any products {filter_text} available in our catalog.
+        pt = parsed_filters['product_type'].lower()
+        ml_filters['category'] = type_to_category.get(pt, pt.title())
 
-Our inventory is regularly updated, and these items may be back in stock soon. 
+    print(" ML Filters:", ml_filters)
 
-Would you like me to:
-• Search with different criteria (different brand, price range, or category)?
-• Show you similar alternatives if you're flexible on some requirements?
+    # ───────────────────────────────────────────────
+    # ML decides products (SOURCE OF TRUTH)
+    # ───────────────────────────────────────────────
+    recommendations = get_ml_recommendations(
+        query=query,
+        customer_context=customer_context,
+        filters=ml_filters,
+        use_history=parsed_filters.get('use_purchase_history', False),
+        top_k=5
+    )
 
-Please let me know how I can help you find what you're looking for!"""
-            
-            print(f"⚠️ No products found in catalog - returning honest message")
-            
-            return {
-                'messages': [AIMessage(content=out_of_stock_msg, name="recommendation_agent")],
-                'results': out_of_stock_msg,
-                'recommendations': out_of_stock_msg,
-                'current_agent': 'Recommendation Agent',
-                'agents_executed': ['Recommendation Agent'],
-                'needs_clarification': False
-            }
-        
-        # ============================================================================
-        # Format ONLY real products from catalog
-        # ============================================================================
-        # ... inside recommendation_agent function ...
-
-        # Format ONLY real products from catalog
-        customer_name = customer_context.get('profile', {}).get('name', '')
-        greeting = f"Hi {customer_name}! " if customer_name else ""
-        
-        output = f"{greeting}Based on your request, here are my recommendations:\n\n"
-        
-        for i, rec in enumerate(recommendations, 1):
-            repurchase_note = " (Buy Again)" if rec.get('is_repurchase') else ""
-            
-            # REMOVED ** from product name below
-            output += f"{i}. {rec['product_name']} by {rec['brand']}{repurchase_note}\n"
-            output += f"   Price: INR {rec['price']:,.0f} | Color: {rec['color']}\n"
-            output += f"   {rec['description']}\n\n"
-        
-        # Show what filters were applied (Clean format)
-        if ml_filters:
-            filter_summary = ', '.join([f'{k}: {v}' for k, v in ml_filters.items()])
-            output += f"\nFiltered by: {filter_summary}"
-            
-        # ... rest of the function ...
-        
-        print(f"✅ Returning {len(recommendations)} real products from catalog")
-        
+    # ───────────────────────────────────────────────
+    # No stock
+    # ───────────────────────────────────────────────
+    if not recommendations:
+        msg = "Sorry, we currently don’t have products matching your exact request. Would you like me to try a different brand, budget or category?"
         return {
-            'messages': [AIMessage(content=output, name="recommendation_agent")],
-            'results': output,
-            'recommendations': output,
+            'messages': [AIMessage(content=msg, name="recommendation_agent")],
+            'results': msg,
+            'recommendations': msg,
             'current_agent': 'Recommendation Agent',
-            'agents_executed': ['Recommendation Agent'],
-            'needs_clarification': False
+            'agents_executed': ['Recommendation Agent']
         }
-    
-    except Exception as e:
-        # ============================================================================
-        # Even on error, NO LLM FALLBACK - admit technical issue
-        # ============================================================================
-        print(f"❌ ML recommendation error: {e}")
-        import traceback
-        traceback.print_exc()
-        
-        error_msg = "I apologize, but I'm experiencing a technical issue accessing our product catalog. Please try again in a moment, or contact our support team for immediate assistance."
-        
-        return {
-            'messages': [AIMessage(content=error_msg, name="recommendation_agent")],
-            'results': error_msg,
-            'recommendations': error_msg,
-            'current_agent': 'Recommendation Agent',
-            'agents_executed': ['Recommendation Agent'],
-            'needs_clarification': False
-        }
+
+    # ───────────────────────────────────────────────
+    # LLM PRESENTATION (SAFE MODE)
+    # ───────────────────────────────────────────────
+    product_json = json.dumps(recommendations, indent=2)
+
+    customer_profile = customer_context.get('profile', {})
+    customer_name = customer_profile.get("name", "")
+
+    llm_prompt = f"""
+You are a shopping assistant.
+
+STRICT RULES:
+- You MUST ONLY use the products listed below
+- You MUST copy product_name, price, color, and description exactly
+- You may NOT rewrite or change any product data
+- Do NOT output JSON
+- Do NOT show field names like "product_name" or "price"
+- Present products as a clean numbered shopping list
+
+Customer name: {customer_name}
+Customer request: {query}
+
+REAL INVENTORY:
+{product_json}
+
+FORMAT REQUIRED:
+
+Start with a short friendly sentence.
+
+Then for each product:
+
+1. Product Name by Brand
+   Price: INR ...
+   Color: ...
+   Description: ...
+
+After listing all products, add one short sentence explaining why these match the request.
+"""
+
+
+
+    final_response = recommendation_llm.invoke(
+        [HumanMessage(content=llm_prompt)]
+    ).content
+
+    return {
+        'messages': [AIMessage(content=final_response, name="recommendation_agent")],
+        'results': final_response,
+        'recommendations': final_response,
+        'current_agent': 'Recommendation Agent',
+        'agents_executed': ['Recommendation Agent'],
+        'needs_clarification': False
+    }
+
 
 
 import uuid
 from datetime import datetime
 
-# ============================================================================
 # IN-MEMORY ESCALATION STORAGE
-# ============================================================================
 
 ESCALATIONS = []
 
-# ============================================================================
+
 # ESCALATION AGENT
-# ============================================================================
 
 def escalation_agent(state: State) -> State:
     """Evaluates escalation and sends to supervisor dashboard"""
     
     print(f"\n{'='*80}")
-    print(f"⚠️  ESCALATION AGENT EXECUTING")
+    print(f"  ESCALATION AGENT EXECUTING")
     print(f"{'='*80}")
     
     escalation_llm = ChatOpenAI(
@@ -933,15 +888,15 @@ Provide score and reasoning."""
         response = escalation_llm_with_schema.invoke([HumanMessage(content=prompt)])
         confidence = float(response.confidence_score)
         reasoning = response.reasoning
-        print(f"📊 Escalation Score: {confidence:.2f}")
-        print(f"💭 Reasoning: {reasoning}")
+        print(f" Escalation Score: {confidence:.2f}")
+        print(f" Reasoning: {reasoning}")
     except Exception as e:
-        print(f"⚠️ Error: {e}")
+        print(f" Error: {e}")
         confidence = 0.5
         reasoning = "Error in analysis"
     
     if confidence >= 0.7:
-        print("🚨 ESCALATING TO SUPERVISOR DASHBOARD")
+        print(" ESCALATING TO SUPERVISOR DASHBOARD")
         
         # Create escalation record
         profile = customer_context.get('profile', {})
@@ -971,7 +926,7 @@ Provide score and reasoning."""
         }
         
         ESCALATIONS.append(escalation_record)
-        print(f"✅ Escalation record created: {escalation_record['escalation_id']}")
+        print(f" Escalation record created: {escalation_record['escalation_id']}")
         
         customer_name = profile.get('name', '')
         greeting = f"{customer_name}, " if customer_name else ""
@@ -999,7 +954,7 @@ Is there anything else I can help you with in the meantime?"""
     else:
         user_message = f"Thank you for reaching out. Your query has been processed successfully."
         escalated = []
-        print("✅ No escalation needed")
+        print(" No escalation needed")
     
     return {
         'messages': [AIMessage(content=user_message, name="escalation_agent")],
@@ -1052,7 +1007,7 @@ def resolve_escalation(escalation_id: str):
         escalation['resolved_at'] = datetime.now().isoformat()
         escalation['supervisor_response'] = supervisor_response
         
-        print(f"✅ Escalation {escalation_id} marked as resolved")
+        print(f"Escalation {escalation_id} marked as resolved")
         
         return jsonify({
             'message': 'Escalation resolved successfully',
@@ -1108,7 +1063,7 @@ def get_escalation_stats():
 def route_from_orchestrator(state: State) -> str:
     """Routes based on orchestrator decision"""
     next_agent = state.get('next_agent', 'Finish')
-    print(f"🔀 ROUTER: '{next_agent}'")
+    print(f" ROUTER: '{next_agent}'")
     return next_agent
 
 
@@ -1207,10 +1162,8 @@ def run_customer_support_streaming(customer_query: str, customer_id: str) -> Gen
             }
         )
         
-        words = response_text.split(' ')
-        for i, word in enumerate(words):
-            yield {'type': 'token', 'content': word + (' ' if i < len(words) - 1 else '')}
-            time.sleep(0.03)
+        yield {'type': 'token', 'content': response_text}
+
         
         yield {'type': 'agent_complete', 'agent': current_agent}
         
@@ -1242,10 +1195,11 @@ def run_customer_support_streaming(customer_query: str, customer_id: str) -> Gen
         yield {'type': 'error', 'message': str(e)}
 
 
-# ============================================================================
 # FLASK ROUTES
-# ============================================================================
 
+@app.route('/')
+def serve_frontend():
+    return app.send_static_file('index.html')
 def create_sse_message(event_type: str, data: dict) -> str:
     """Create SSE message"""
     return f"data: {json.dumps({'type': event_type, **data})}\n\n"
@@ -1353,10 +1307,9 @@ def chat():
                         break
 
             except Exception as e:
-                print(f"❌ Generate error: {e}")
+                print(f" Generate error: {e}")
                 import traceback
                 traceback.print_exc()
-        # ✅ REMOVE should_logout completely
                 yield create_sse_message('error', {
                     'message': f'Error: {str(e)}'
         })
@@ -1368,11 +1321,10 @@ def chat():
         )
 
     except Exception as e:
-        print(f"❌ Chat error: {e}")
+        print(f" Chat error: {e}")
         import traceback
         traceback.print_exc()
         
-        # ✅ FIX #4: ALWAYS return SSE format, NEVER JSON
         def error_stream():
             yield create_sse_message('error', {
                 'message': str(e)
@@ -1736,14 +1688,14 @@ def internal_error(e):
 
 if __name__ == '__main__':
     print("\n" + "="*80)
-    print("🤖 CUSTOMER SUPPORT AI - COMPLETE SYSTEM (NO LLM HALLUCINATION)")
+    print(" CUSTOMER SUPPORT AI - COMPLETE SYSTEM (NO LLM HALLUCINATION)")
     print("="*80)
     
-    print("\n🚀 Initializing ML models...")
+    print("\n Initializing ML models...")
     initialize_ml_models()
     
     print("\n📡 Server starting on http://localhost:5000")
-    print("💡 Endpoints:")
+    print(" Endpoints:")
     print("   - POST /chat - Main chat endpoint")
     print("   - POST /login - User login")
     print("   - GET  /health - Health check")
@@ -1760,7 +1712,7 @@ if __name__ == '__main__':
     print("   - POST /debug/test-recommendation - Test ML with sample query")
     print("   - GET  /debug/product-stats - Get product catalog statistics")
     
-    print("\n🎯 Agent Architecture:")
+    print("\n Agent Architecture:")
     print("   1. Orchestrator - Routes queries")
     print("   2. Query Parser - Extracts filters")
     print("   3. Support Agent - Handles FAQs")
@@ -1768,15 +1720,15 @@ if __name__ == '__main__':
     print("   5. Escalation Agent - Evaluates issues")
     
     if ML_LOADED:
-        print("\n✅ ML Models: LOADED AND READY")
-        print("   🔒 Recommendation Agent: Will ONLY show products from catalog")
-        print("   ⚠️  NO LLM fallback - honest out-of-stock messages instead")
+        print("\n ML Models: LOADED AND READY")
+        print("    Recommendation Agent: Will ONLY show products from catalog")
+        print("     NO LLM fallback - honest out-of-stock messages instead")
     else:
-        print("\n⚠️  ML Models: NOT LOADED")
-        print("   🚫 Recommendation Agent will return error message")
-        print("   🔒 NO hallucinated products will be generated")
+        print("\n  ML Models: NOT LOADED")
+        print("    Recommendation Agent will return error message")
+        print("    NO hallucinated products will be generated")
     
-    print("\n⚡ Ready!\n")
+    print("\nReady!\n")
     
     app.run(
         host='0.0.0.0',
