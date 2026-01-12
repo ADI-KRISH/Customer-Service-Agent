@@ -37,26 +37,26 @@ The system features **session persistence**, **streaming responses**, and a **re
 ##  Features
 
 ### Core Functionality
-- ✅ **Multi-Agent Orchestration** using LangGraph
-- ✅ **Intelligent Query Routing** based on intent
-- ✅ **ML-Powered Product Recommendations** (LightGBM + Sentence Transformers)
-- ✅ **Session Persistence** (survives page reloads)
-- ✅ **Real-time Streaming Responses** (SSE)
-- ✅ **Customer Profile & Purchase History Integration**
-- ✅ **Supervisor Escalation Dashboard**
+-  **Multi-Agent Orchestration** using LangGraph
+-  **Intelligent Query Routing** based on intent
+-  **ML-Powered Product Recommendations** (LightGBM + Sentence Transformers)
+-  **Session Persistence** (survives page reloads)
+-  **Real-time Streaming Responses** (SSE)
+-  **Customer Profile & Purchase History Integration**
+-  **Supervisor Escalation Dashboard**
 
 ### User Experience
-- ✅ Guest & Registered User Support
-- ✅ Personalized Greetings & Recommendations
-- ✅ Filter-based Product Search (brand, price, gender, category)
-- ✅ Conversation History Tracking
-- ✅ Mobile-Responsive Design
+-  Guest & Registered User Support
+-  Personalized Greetings & Recommendations
+-  Filter-based Product Search (brand, price, gender, category)
+-  Conversation History Tracking
+-  Mobile-Responsive Design
 
 ### Security & Performance
-- ✅ No localStorage usage (artifact-safe)
-- ✅ Session validation middleware
-- ✅ Error handling & graceful degradation
-- ✅ NO LLM hallucination (ML catalog as source of truth)
+-  No localStorage usage (artifact-safe)
+-  Session validation middleware
+-  Error handling & graceful degradation
+-  NO LLM hallucination (ML catalog as source of truth)
 
 ---
 
