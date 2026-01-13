@@ -1573,18 +1573,18 @@ def ml_status():
                 'product_embeddings_shape': PRODUCT_EMBEDDINGS.shape if PRODUCT_EMBEDDINGS is not None else None,
             },
             'file_paths': {
-                'recommender_model': r"C:/Users/GS Adithya Krishna\Desktop/internship/recommendation_system/recommender_model.pkl",
-                'feature_builder': r"C:/Users/GS Adithya Krishna\Desktop/internship/recommendation_system/feature_builder.pkl",
-                'product_catalog': r"C:/Users/GS Adithya Krishna\Desktop/internship\data/myntra_products_catalog.csv",
+                'recommender_model': r"path to recommender_model.pkl",
+                'feature_builder': r"path to feature_builder.pkl",
+                'product_catalog': r"path to myntra_products_catalog.csv",
             },
             'status_message': 'ML models loaded and ready!' if ML_LOADED else 'ML models NOT loaded - NO FALLBACK'
         }
         
         import os
         status['files_exist'] = {
-            'recommender_model': os.path.exists(r"C:/Users/GS Adithya Krishna\Desktop/internship/recommendation_system/recommender_model.pkl"),
-            'feature_builder': os.path.exists(r"C:/Users/GS Adithya Krishna\Desktop/internship/recommendation_system/feature_builder.pkl"),
-            'product_catalog': os.path.exists(r"C:/Users/GS Adithya Krishna\Desktop/internship\data/myntra_products_catalog.csv"),
+            'recommender_model': os.path.exists(r"path to recommender_model.pkl"),
+            'feature_builder': os.path.exists(r"path to feature_builder.pkl"),
+            'product_catalog': os.path.exists(r" path to myntra_products_catalog.csv"),
         }
         
         return jsonify(status)
