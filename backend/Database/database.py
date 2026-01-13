@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 import json
 import os
 
-BASE_DIR = r"C:/Users/GS Adithya Krishna\Desktop/internship\backend\Database"
+BASE_DIR = r"path to Database"
 DB_PATH = os.path.join(BASE_DIR, "customer_support.db")
 
 class CustomerDatabase:
