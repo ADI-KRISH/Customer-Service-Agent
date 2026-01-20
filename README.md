@@ -145,6 +145,7 @@ Create a `.env` file in the project root:
 
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
 ### 5. Initialize Database
@@ -160,7 +161,7 @@ This will:
 ### 6. Build Vector Store (Policy Documents)
 ```bash
 cd backend
-python build_vector_store.py
+python build.py
 ```
 
 ### 7. Train ML Recommendation Model
