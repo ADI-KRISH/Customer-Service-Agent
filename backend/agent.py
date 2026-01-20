@@ -39,9 +39,9 @@ def initialize_ml_models():
     global PRODUCT_FEATURES, TEXT_MODEL, PRODUCT_EMBEDDINGS, ML_LOADED
     
     try:
-        RECOMMENDER_MODEL = joblib.load(r"C:/Users/GS Adithya Krishna/Desktop/test/Customer-Service-Agent/recommendation_system/recommender_model.pkl")
-        FEATURE_BUILDER = joblib.load(r"C:/Users/GS Adithya Krishna\Desktop/test/Customer-Service-Agent/recommendation_system/feature_builder.pkl")
-        PRODUCT_CATALOG = pd.read_csv(r"C:/Users/GS Adithya Krishna/Desktop/test/Customer-Service-Agent/data/myntra_products_with_categories.csv")
+        RECOMMENDER_MODEL = joblib.load(r"path to recommender_model.pkl")
+        FEATURE_BUILDER = joblib.load(r"path to feature_builder.pkl")
+        PRODUCT_CATALOG = pd.read_csv(r"path to myntra_products_with_categories.csv")
         
         print(" Precomputing product features...")
         PRODUCT_FEATURES = FEATURE_BUILDER.transform_products(PRODUCT_CATALOG)
@@ -195,7 +195,7 @@ def orchestrator(state: State) -> State:
     clarification_question = state.get('clarification_question', '')
     
     print(f"\n{'='*80}")
-    print(f"🎯 ORCHESTRATOR - Iteration {iteration}")
+    print(f" ORCHESTRATOR - Iteration {iteration}")
     print(f"{'='*80}")
     
     # Handle clarification requests
