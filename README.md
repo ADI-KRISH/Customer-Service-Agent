@@ -232,10 +232,8 @@ Frontend available at: `http://localhost:8000`
 
 ### 3. Open Supervisor Dashboard
 ```bash
-cd supervisor_dashboard
+open supervisor_dashboard.html in any browser
 ```
-
-Open supervisor.html in browser
 
 Dashboard available at: `file:///path/to/supervisor.html`
 
