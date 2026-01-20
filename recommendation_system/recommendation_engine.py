@@ -1,3 +1,4 @@
+""" This is a sample code for checking if the model works or not """
 import joblib
 import numpy as np
 import pandas as pd
@@ -6,7 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 model = joblib.load("recommender_model.pkl")
 fb = joblib.load("feature_builder.pkl")
 
-df = pd.read_csv(r"C:/Users/GS Adithya Krishna/Desktop/internship/data/myntra_products_catalog.csv")
+df = pd.read_csv(r"path to myntra_products_catalog.csv")
 product_vectors = fb.transform_products(df)
 
 def recommend(user_context: dict, top_k=5):
