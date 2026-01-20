@@ -13,9 +13,9 @@
     <div id="root"></div>
     
     <script type="text/babel">
-        const { useState, useRef, useEffect, useCallback } = React;
+        const { useState, useRef, useEffect, useCallback, useMemo } = React;
         
-        // Icons
+        // Icons (unchanged)
         const Bot = ({ className }) => (
             <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -42,12 +42,41 @@
         );
 
         function CustomerSupportChat() {
-          // Session state
-          const [customerId, setCustomerId] = useState(null);
-          const [customerName, setCustomerName] = useState('');
-          const [customerEmail, setCustomerEmail] = useState('');
-          const [customerProfile, setCustomerProfile] = useState(null);
-          const [showLogin, setShowLogin] = useState(true);
+          // FIX 1: STABLE SESSION STATE (no unnecessary re-renders)
+          const [customerId, setCustomerId] = useState(() => {
+            try {
+              const stored = sessionStorage.getItem('customer_session');
+              return stored ? JSON.parse(stored).customerId : null;
+            } catch { return null; }
+          });
+          
+          const [customerName, setCustomerName] = useState(() => {
+            try {
+              const stored = sessionStorage.getItem('customer_session');
+              return stored ? JSON.parse(stored).customerName : '';
+            } catch { return ''; }
+          });
+          
+          const [customerEmail, setCustomerEmail] = useState(() => {
+            try {
+              const stored = sessionStorage.getItem('customer_session');
+              return stored ? JSON.parse(stored).customerEmail : '';
+            } catch { return ''; }
+          });
+          
+          const [customerProfile, setCustomerProfile] = useState(() => {
+            try {
+              const stored = sessionStorage.getItem('customer_session');
+              return stored ? JSON.parse(stored).customerProfile : null;
+            } catch { return null; }
+          });
+          
+          const [showLogin, setShowLogin] = useState(() => {
+            try {
+              const stored = sessionStorage.getItem('customer_session');
+              return !stored;
+            } catch { return true; }
+          });
           
           // UI state
           const [loginId, setLoginId] = useState('');
@@ -57,57 +86,69 @@
           const [currentStream, setCurrentStream] = useState('');
           const [agentInfo, setAgentInfo] = useState(null);
           const messagesEndRef = useRef(null);
-        
-          const sessionDataRef = useRef({
-            customerId: null,
-            customerName: '',
-            customerEmail: '',
-            customerProfile: null
+          
+          // FIX 2: USE REF FOR SESSION DATA (prevents re-render loops)
+          const sessionRef = useRef({
+            customerId: customerId,
+            customerName: customerName,
+            customerEmail: customerEmail,
+            customerProfile: customerProfile
           });
-        
-          // Load session ONCE on mount
-          const sessionLoadedRef = useRef(false);
+          
+          // Update ref when session changes (but don't trigger re-render)
+          useEffect(() => {
+            sessionRef.current = {
+              customerId,
+              customerName,
+              customerEmail,
+              customerProfile
+            };
+          }, [customerId, customerName, customerEmail, customerProfile]);
+          
+          // FIX 3: INITIALIZE ONCE (no redundant session loading)
+          const sessionInitialized = useRef(false);
           
           useEffect(() => {
-            if (sessionLoadedRef.current) return;
+            if (sessionInitialized.current) return;
             
             try {
               const stored = sessionStorage.getItem('customer_session');
               if (stored) {
                 const session = JSON.parse(stored);
-                console.log('✅ Session found:', session.customerId);
+                console.log('✅ Session restored:', session.customerId);
                 
-                setCustomerId(session.customerId);
-                setCustomerName(session.customerName);
-                setCustomerEmail(session.customerEmail);
-                setCustomerProfile(session.customerProfile);
-                setShowLogin(false);
+                // Set welcome message ONLY if no messages yet
+                if (messages.length === 0) {
+                  setMessages([{
+                    role: "assistant",
+                    content: `Welcome back, ${session.customerName}! How can I help you today?`,
+                    timestamp: new Date()
+                  }]);
+                }
                 
-                sessionDataRef.current = session;
-                
-                setMessages(prev => prev.length > 0 ? prev : [{
-                  role: "assistant",
-                  content: `Welcome back, ${session.customerName}! How can I help you today?`,
-                  timestamp: new Date()
-                }]);
-                
-                sessionLoadedRef.current = true;
+                sessionInitialized.current = true;
               }
             } catch (error) {
               console.error('Session load error:', error);
             }
-          }, []); 
-        
-          useEffect(() => {
-            if (customerId) {
-              sessionDataRef.current = {
-                customerId,
-                customerName,
-                customerEmail,
-                customerProfile
+          }, []); // Empty dependency - runs ONCE
+          
+          // FIX 4: MEMOIZED SAVE FUNCTION (prevents re-creation)
+          const saveSession = useCallback((sessionData) => {
+            try {
+              const session = {
+                customerId: sessionData.customerId,
+                customerName: sessionData.customerName,
+                customerEmail: sessionData.customerEmail,
+                customerProfile: sessionData.customerProfile,
+                timestamp: new Date().toISOString()
               };
+              sessionStorage.setItem('customer_session', JSON.stringify(session));
+              console.log('💾 Session saved:', session.customerId);
+            } catch (error) {
+              console.error('Session save error:', error);
             }
-          }, [customerId, customerName, customerEmail, customerProfile]);
+          }, []); // No dependencies - stable function
           
           const scrollToBottom = () => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -120,12 +161,6 @@
           const handleSessionExpired = useCallback(() => {
             console.log('🚪 Session expired');
             sessionStorage.removeItem('customer_session');
-            sessionDataRef.current = {
-              customerId: null,
-              customerName: '',
-              customerEmail: '',
-              customerProfile: null
-            };
             setCustomerId(null);
             setCustomerName('');
             setCustomerEmail('');
@@ -133,22 +168,6 @@
             setMessages([]);
             setShowLogin(true);
             alert('Your session has expired. Please login again.');
-          }, []);
-
-          const saveSession = useCallback((sessionData) => {
-            try {
-              const session = {
-                customerId: sessionData.customerId,
-                customerName: sessionData.customerName,
-                customerEmail: sessionData.customerEmail,
-                customerProfile: sessionData.customerProfile,
-                timestamp: new Date().toISOString()
-              };
-              sessionStorage.setItem('customer_session', JSON.stringify(session));
-              sessionDataRef.current = session;
-            } catch (error) {
-              console.error('Session save error:', error);
-            }
           }, []);
 
           const handleLogin = async () => {
@@ -182,10 +201,11 @@
               setShowLogin(false);
           
               saveSession(sessionData);
-              setMessages(prev => prev.length > 0 ? prev : [{
-                  role: "assistant",
-                  content: `Hi ${data.profile.name}! Welcome back. How can I help you today?`,
-                  timestamp: new Date()
+              
+              setMessages([{
+                role: "assistant",
+                content: `Hi ${data.profile.name}! Welcome back. How can I help you today?`,
+                timestamp: new Date()
               }]);
             } catch (error) {
               console.error('Login error:', error);
@@ -200,12 +220,15 @@
               customerEmail: '',
               customerProfile: null
             };
+            
             setCustomerId(sessionData.customerId);
             setCustomerName(sessionData.customerName);
             setCustomerEmail(sessionData.customerEmail);
             setCustomerProfile(sessionData.customerProfile);
             setShowLogin(false);
+            
             saveSession(sessionData);
+            
             setMessages([{
               role: 'assistant',
               content: 'Hi! I\'m your AI customer support assistant. How can I help you today?',
@@ -220,7 +243,9 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ customer_id: customerId })
               });
-            } catch (error) { console.error('Logout error:', error); }
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
             
             sessionStorage.removeItem('customer_session');
             setCustomerId(null);
@@ -231,14 +256,18 @@
             setShowLogin(true);
           };
 
-          // ✅ REVISED: Accepts event 'e' to prevent default reload
-          const handleSubmit = async (e) => {
-            if (e) e.preventDefault(); // Stop page reload
+          // FIX 5: IMPROVED SUBMIT HANDLER (no reload triggers)
+          const handleSubmit = useCallback(async (e) => {
+            // Prevent default form submission
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
             
             if (!input.trim() || isLoading) return;
 
-            const currentSession = sessionDataRef.current;
-            console.log('📤 Sending message...', currentSession.customerId);
+            const session = sessionRef.current;
+            console.log('📤 Sending message...');
 
             const userMessage = {
               role: 'user',
@@ -246,9 +275,11 @@
               timestamp: new Date()
             };
 
+            // Add user message immediately
             setMessages(prev => [...prev, userMessage]);
+            
             const messageToSend = input.trim();
-            setInput('');
+            setInput(''); // Clear input immediately
             setIsLoading(true);
             setCurrentStream('');
             setAgentInfo(null);
@@ -256,11 +287,11 @@
             try {
               const requestBody = {
                 message: messageToSend,
-                customer_id: currentSession.customerId
+                customer_id: session.customerId
               };
               
-              if (currentSession.customerEmail && currentSession.customerId !== 'GUEST') {
-                requestBody.email = currentSession.customerEmail;
+              if (session.customerEmail && session.customerId !== 'GUEST') {
+                requestBody.email = session.customerEmail;
               }
 
               const response = await fetch('http://localhost:5000/chat', {
@@ -281,46 +312,67 @@
                 throw new Error('Network error');
               }
 
+              // FIX 6: IMPROVED STREAMING (prevent memory leaks)
               const reader = response.body.getReader();
               const decoder = new TextDecoder();
               let fullResponse = '';
               let currentAgent = '';
+              let buffer = ''; // Buffer for incomplete chunks
 
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
+                  buffer += decoder.decode(value, { stream: true });
+                  const lines = buffer.split('\n');
+                  
+                  // Keep last incomplete line in buffer
+                  buffer = lines.pop() || '';
 
-                for (const line of lines) {
-                  if (line.startsWith('data: ')) {
-                    try {
-                      const data = JSON.parse(line.slice(6));
-                      if (data.type === 'agent_start') {
-                        currentAgent = data.agent;
-                        setAgentInfo({ agent: data.agent, status: 'processing' });
-                      } else if (data.type === 'token') {
-                        fullResponse += data.content;
-                        setCurrentStream(fullResponse);
-                      } else if (data.type === 'agent_complete') {
-                        setAgentInfo({ agent: data.agent, status: 'complete' });
-                      } else if (data.type === 'done') {
-                        setMessages(prev => [...prev, {
-                          role: 'assistant',
-                          content: fullResponse,
-                          timestamp: new Date(),
-                          agent: currentAgent,
-                          metadata: data.metadata
-                        }]);
-                        setCurrentStream('');
-                        setAgentInfo(null);
-                      } else if (data.type === 'error') {
-                        console.error('Stream error:', data.message);
+                  for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                      try {
+                        const data = JSON.parse(line.slice(6));
+                        
+                        if (data.type === 'agent_start' || data.type === 'start') {
+                          currentAgent = data.agent || 'Processing';
+                          setAgentInfo({ agent: currentAgent, status: 'processing' });
+                        } 
+                        else if (data.type === 'token') {
+                          fullResponse += data.content;
+                          setCurrentStream(fullResponse);
+                        } 
+                        else if (data.type === 'agent_complete' || data.type === 'complete') {
+                          setAgentInfo({ agent: data.agent || currentAgent, status: 'complete' });
+                        } 
+                        else if (data.type === 'done') {
+                          // Add final message
+                          setMessages(prev => [...prev, {
+                            role: 'assistant',
+                            content: fullResponse,
+                            timestamp: new Date(),
+                            agent: currentAgent,
+                            metadata: data.metadata
+                          }]);
+                          
+                          // Clear streaming state
+                          setCurrentStream('');
+                          setAgentInfo(null);
+                        } 
+                        else if (data.type === 'error') {
+                          console.error('Stream error:', data.message);
+                          throw new Error(data.message);
+                        }
+                      } catch (parseError) {
+                        console.error('Parse error:', parseError);
                       }
-                    } catch (e) { console.error(e); }
+                    }
                   }
                 }
+              } finally {
+                // Cleanup reader
+                reader.releaseLock();
               }
             } catch (error) {
               console.error('Chat error:', error);
@@ -332,20 +384,23 @@
               }]);
             } finally {
               setIsLoading(false);
+              setCurrentStream('');
+              setAgentInfo(null);
             }
-          };
+          }, [input, isLoading, handleSessionExpired]); // Stable dependencies
 
-          const handleKeyDown = (e) => {
+          const handleKeyDown = useCallback((e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              handleSubmit(e); // Pass event
+              handleSubmit(e);
             }
-          };
+          }, [handleSubmit]);
 
           const formatTime = (date) => {
             return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
           };
 
+          // LOGIN SCREEN
           if (showLogin) {
             return (
               <div className="flex items-center justify-center h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -369,31 +424,52 @@
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
-                    <button onClick={handleLogin} className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors font-medium">Sign In</button>
-                    <button onClick={handleGuestLogin} className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition-colors font-medium">Continue as Guest</button>
+                    <button onClick={handleLogin} className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors font-medium">
+                      Sign In
+                    </button>
+                    <button onClick={handleGuestLogin} className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition-colors font-medium">
+                      Continue as Guest
+                    </button>
                   </div>
                 </div>
               </div>
             );
           }
 
+          // CHAT SCREEN
           return (
             <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+              {/* Header */}
               <div className="bg-white shadow-md border-b border-gray-200">
                 <div className="max-w-4xl mx-auto px-4 py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="bg-indigo-600 p-2 rounded-lg"><Bot className="w-6 h-6 text-white" /></div>
-                      <div><h1 className="text-xl font-bold text-gray-800">Customer Support AI</h1><p className="text-sm text-gray-600">Multi-Agent System</p></div>
+                      <div className="bg-indigo-600 p-2 rounded-lg">
+                        <Bot className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h1 className="text-xl font-bold text-gray-800">Customer Support AI</h1>
+                        <p className="text-sm text-gray-600">Multi-Agent System</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      {customerProfile && <div className="text-right"><p className="text-sm font-medium text-gray-800">{customerName}</p></div>}
-                      <button onClick={handleLogout} className="ml-2 px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">Logout</button>
+                      {customerProfile && (
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-gray-800">{customerName}</p>
+                        </div>
+                      )}
+                      <button 
+                        onClick={handleLogout} 
+                        className="ml-2 px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                      >
+                        Logout
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
 
+              {/* Messages */}
               <div className="flex-1 overflow-y-auto px-4 py-6">
                 <div className="max-w-4xl mx-auto space-y-4">
                   {messages.map((message, index) => (
@@ -413,24 +489,37 @@
                     </div>
                   ))}
                   
+                  {/* Streaming message */}
                   {currentStream && (
                     <div className="flex gap-3 flex-row">
-                      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center"><Bot className="w-5 h-5 text-white"/></div>
+                      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                        <Bot className="w-5 h-5 text-white"/>
+                      </div>
                       <div className="flex flex-col max-w-[70%] items-start">
                         <div className="rounded-2xl px-4 py-3 bg-white text-gray-800 shadow-sm border border-gray-200">
-                          <p className="text-sm whitespace-pre-wrap break-words">{currentStream}<span className="inline-block w-2 h-4 bg-indigo-600 ml-1 animate-pulse"></span></p>
+                          <p className="text-sm whitespace-pre-wrap break-words">
+                            {currentStream}
+                            <span className="inline-block w-2 h-4 bg-indigo-600 ml-1 animate-pulse"></span>
+                          </p>
                         </div>
-                        {agentInfo && <div className="flex items-center gap-2 mt-1 px-2"><Loader2 className="w-3 h-3 text-indigo-600" /><span className="text-xs text-indigo-600 font-medium">{agentInfo.agent}</span></div>}
+                        {agentInfo && (
+                          <div className="flex items-center gap-2 mt-1 px-2">
+                            <Loader2 className="w-3 h-3 text-indigo-600" />
+                            <span className="text-xs text-indigo-600 font-medium">{agentInfo.agent}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
+                  
                   <div ref={messagesEndRef} />
                 </div>
               </div>
 
+              {/* Input Area */}
               <div className="bg-white border-t border-gray-200 shadow-lg">
                 <div className="max-w-4xl mx-auto px-4 py-4">
-                  <div className="flex gap-3">
+                  <form onSubmit={handleSubmit} className="flex gap-3">
                     <div className="flex-1 relative">
                       <textarea
                         value={input}
@@ -443,16 +532,14 @@
                         disabled={isLoading}
                       />
                     </div>
-                    {/* ✅ FIX: Added type="button" and passed event to onClick */}
                     <button
-                      type="button"
-                      onClick={(e) => handleSubmit(e)}
+                      type="submit"
                       disabled={!input.trim() || isLoading}
                       className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
                       {isLoading ? <Loader2 className="w-5 h-5" /> : <Send className="w-5 h-5" />}
                     </button>
-                  </div>
+                  </form>
                   <p className="text-xs text-gray-500 mt-2 text-center">AI-powered support • Personalized recommendations</p>
                 </div>
               </div>
@@ -460,7 +547,9 @@
           );
         }
         
-        ReactDOM.render(<CustomerSupportChat />, document.getElementById('root'));
+    
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CustomerSupportChat />);
     </script>
 </body>
 </html>
